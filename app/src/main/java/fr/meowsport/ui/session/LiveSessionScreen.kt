@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -232,12 +233,29 @@ fun LiveSessionScreen(
             text = {
                 Text(
                     if (left > 0) "Il reste $left série${if (left > 1) "s" else ""} non cochée${if (left > 1) "s" else ""}. " +
-                        "Seules les séries cochées comptent et mettent à jour ton modèle."
-                    else "Ton modèle sera mis à jour avec ce que tu viens de faire.",
+                        "Seules les séries cochées comptent et mettent à jour ton modèle." +
+                        "\n\n« Terminer sans sauvegarder » supprime la séance et ne change pas ton modèle."
+                    else "Ton modèle sera mis à jour avec ce que tu viens de faire." +
+                        "\n\n« Terminer sans sauvegarder » supprime la séance et ne change pas ton modèle.",
                 )
             },
-            confirmButton = { TextButton(onClick = { confirmFinish = false; vm.finish() }) { Text("Terminer") } },
-            dismissButton = { TextButton(onClick = { confirmFinish = false }) { Text("Continuer") } },
+            confirmButton = {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { confirmFinish = false; vm.finish() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Sauvegarder et terminer") }
+                    OutlinedButton(
+                        onClick = { confirmFinish = false },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Continuer la séance") }
+                    TextButton(
+                        onClick = { confirmFinish = false; vm.discard(onFinished) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Terminer sans sauvegarder") }
+                }
+            },
         )
     }
 
