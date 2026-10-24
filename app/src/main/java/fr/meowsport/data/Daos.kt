@@ -17,6 +17,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercises WHERE id = :id")
     suspend fun get(id: Long): Exercise?
 
+    @Query("SELECT * FROM exercises WHERE `key` IN (:keys)")
+    suspend fun byKeys(keys: List<String>): List<Exercise>
+
     @Query("SELECT `key` FROM exercises WHERE `key` IS NOT NULL")
     suspend fun builtInKeys(): List<String>
 

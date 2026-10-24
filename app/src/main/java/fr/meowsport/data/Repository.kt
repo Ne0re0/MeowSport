@@ -87,6 +87,27 @@ class Repository(private val db: AppDatabase) {
         templateId
     }
 
+    /** Copies an example template into the user's templates. Returns the new template id. */
+    suspend fun addExampleTemplate(example: ExampleTemplate): Long {
+        seedCatalog()
+        val byKey = exercises.byKeys(example.exercises.map { it.key }).associateBy { it.key }
+        val lines = example.exercises.mapNotNull { e ->
+            val ex = byKey[e.key] ?: return@mapNotNull null
+            EditLine(
+                lineId = null,
+                exercise = ex,
+                sets = e.sets,
+                reps = e.reps,
+                weight = 0.0,
+                perHand = ex.equipment == Equipment.DUMBBELL || ex.equipment == Equipment.KETTLEBELL,
+                restSetSec = e.restSetSec,
+                restAfterSec = e.restAfterSec,
+                note = "",
+            )
+        }
+        return saveTemplate(null, example.name, lines)
+    }
+
     // ---------- Sessions ----------
 
     fun observeActiveSession() = sessions.observeActive()

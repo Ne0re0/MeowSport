@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -34,6 +35,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,7 +66,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TemplatesScreen(onEdit: (Long?) -> Unit, onOpenSession: (Long) -> Unit) {
+fun TemplatesScreen(onEdit: (Long?) -> Unit, onOpenSession: (Long) -> Unit, onExamples: () -> Unit) {
     val repo = LocalContext.current.app.repo
     val templates by remember { repo.observeTemplates() }.collectAsStateWithLifecycle(initialValue = null)
     val active by remember { repo.observeActiveSession() }.collectAsStateWithLifecycle(initialValue = null)
@@ -106,7 +108,10 @@ fun TemplatesScreen(onEdit: (Long?) -> Unit, onOpenSession: (Long) -> Unit) {
             val list = templates
             when {
                 list == null -> Unit
-                list.isEmpty() -> item { EmptyState() }
+                list.isEmpty() -> {
+                    item { EmptyState() }
+                    item { ExamplesButton(onExamples) }
+                }
                 else -> {
                     item {
                         Text(
@@ -123,6 +128,7 @@ fun TemplatesScreen(onEdit: (Long?) -> Unit, onOpenSession: (Long) -> Unit) {
                             onDelete = { toDelete = t },
                         )
                     }
+                    item { ExamplesButton(onExamples) }
                 }
             }
         }
@@ -245,6 +251,15 @@ private fun TemplateCard(t: TemplateFull, onStart: () -> Unit, onEdit: () -> Uni
 }
 
 @Composable
+private fun ExamplesButton(onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+        Icon(Icons.Default.AutoAwesome, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text("Exemples de modèles (Upper/Lower, PPL…)")
+    }
+}
+
+@Composable
 private fun EmptyState() {
     Column(
         Modifier.fillMaxWidth().padding(top = 64.dp, start = 24.dp, end = 24.dp),
@@ -255,7 +270,7 @@ private fun EmptyState() {
         Text("Aucun modèle pour l'instant", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Crée ton premier modèle de séance avec « Nouveau modèle », puis lance-le à la salle.",
+            "Crée ton premier modèle avec « Nouveau modèle », ou pars d'un exemple tout prêt.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
