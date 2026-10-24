@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Cat head -->
+    <path
+        android:fillColor="#17151A"
+        android:pathData="M33,52 L35,27 L49,38 Q54,37 59,38 L73,27 L75,52 Q77,72 54,73 Q31,72 33,52 Z" />
+    <!-- Eyes -->
+    <path
+        android:fillColor="#FF8A3D"
+        android:pathData="M42,53 a4,4.5 0 1,0 8,0 a4,4.5 0 1,0 -8,0 Z M58,53 a4,4.5 0 1,0 8,0 a4,4.5 0 1,0 -8,0 Z" />
+    <!-- Nose -->
+    <path
+        android:fillColor="#FFB98A"
+        android:pathData="M51,61 L57,61 L54,64.5 Z" />
+    <!-- Dumbbell -->
+    <path
+        android:fillColor="#17151A"
+        android:pathData="M30,80 L78,80 L78,83 L30,83 Z M27,75 L33,75 Q34,75 34,76 L34,87 Q34,88 33,88 L27,88 Q26,88 26,87 L26,76 Q26,75 27,75 Z M75,75 L81,75 Q82,75 82,76 L82,87 Q82,88 81,88 L75,88 Q74,88 74,87 L74,76 Q74,75 75,75 Z M21,77.5 L25,77.5 L25,85.5 L21,85.5 Z M83,77.5 L87,77.5 L87,85.5 L83,85.5 Z" />
+</vector>

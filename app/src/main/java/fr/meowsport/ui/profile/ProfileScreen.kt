@@ -1,0 +1,291 @@
+package fr.meowsport.ui.profile
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import fr.meowsport.Profile
+import fr.meowsport.app
+import fr.meowsport.data.Session
+import fr.meowsport.ui.components.Stepper
+import fr.meowsport.ui.formatDate
+import fr.meowsport.ui.formatDuration
+import fr.meowsport.ui.formatVolume
+import fr.meowsport.ui.templates.ActiveSessionBanner
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+
+private data class WeekStat(val start: LocalDate, val count: Int, val minutes: Long)
+
+private fun Session.durationMs() = (endedAt ?: startedAt) - startedAt
+
+private fun weekStart(ms: Long, zone: ZoneId): LocalDate =
+    Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit) {
+    val app = LocalContext.current.app
+    val history by remember { app.repo.observeHistory() }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val active by remember { app.repo.observeActiveSession() }.collectAsStateWithLifecycle(initialValue = null)
+    val profile by app.profile.state.collectAsStateWithLifecycle()
+    var editing by remember { mutableStateOf(false) }
+
+    val zone = ZoneId.systemDefault()
+    val thisWeek = weekStart(System.currentTimeMillis(), zone)
+    val weeks = remember(history) {
+        val byWeek = history.groupBy { weekStart(it.startedAt, zone) }
+        (7 downTo 0).map { i ->
+            val start = thisWeek.minusWeeks(i.toLong())
+            val list = byWeek[start].orEmpty()
+            WeekStat(start, list.size, list.sumOf { it.durationMs() } / 60_000)
+        }
+    }
+    val current = weeks.last()
+    val totalMs = history.sumOf { it.durationMs() }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("Profil") }) }) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item { Header(profile, onEdit = { editing = true }) }
+            active?.let { s -> item { ActiveSessionBanner(s, onClick = { onResumeSession(s.id) }) } }
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Cette semaine", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(12.dp))
+                        Row {
+                            Stat("${current.count} / ${profile.weeklyGoal}", "séances", Modifier.weight(1f))
+                            Stat(formatDuration(current.minutes * 60_000), "à la salle", Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(
+                            progress = { (current.count.toFloat() / profile.weeklyGoal.coerceAtLeast(1)).coerceAtMost(1f) },
+                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                        )
+                        if (current.count >= profile.weeklyGoal && profile.weeklyGoal > 0) {
+                            Spacer(Modifier.height(8.dp))
+                            Text("🎯 Objectif de la semaine atteint !", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Temps à la salle, 8 dernières semaines", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(12.dp))
+                        WeeksChart(weeks)
+                    }
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SmallStat("${history.size}", "séances au total", Modifier.weight(1f))
+                    SmallStat(formatDuration(totalMs), "au total", Modifier.weight(1f))
+                    SmallStat(
+                        if (history.isEmpty()) "–" else formatDuration(totalMs / history.size),
+                        "par séance",
+                        Modifier.weight(1f),
+                    )
+                }
+            }
+            item { Text("Historique", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
+            if (history.isEmpty()) {
+                item {
+                    Text(
+                        "Tes séances terminées apparaîtront ici.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            items(history, key = { it.id }) { s -> HistoryRow(s, onClick = { onOpenSession(s.id) }) }
+        }
+    }
+
+    if (editing) {
+        EditProfileDialog(profile, onDismiss = { editing = false }, onSave = { app.profile.update(it); editing = false })
+    }
+}
+
+@Composable
+private fun Header(profile: Profile, onEdit: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("🐱", style = MaterialTheme.typography.headlineMedium)
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(profile.name, style = MaterialTheme.typography.headlineMedium)
+            Text(
+                "Objectif : ${profile.weeklyGoal} séance${if (profile.weeklyGoal > 1) "s" else ""} par semaine",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "Modifier le profil") }
+    }
+}
+
+@Composable
+private fun Stat(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(value, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun SmallStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(12.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+private val weekLabel = DateTimeFormatter.ofPattern("dd/MM")
+
+@Composable
+private fun WeeksChart(weeks: List<WeekStat>) {
+    val max = (weeks.maxOfOrNull { it.minutes } ?: 0L).coerceAtLeast(60L)
+    val bar = MaterialTheme.colorScheme.primary
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    Column {
+        Row(Modifier.fillMaxWidth()) {
+            weeks.forEach { w ->
+                Text(
+                    if (w.minutes > 0) formatDuration(w.minutes * 60_000).replace(" ", "") else "",
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Canvas(Modifier.fillMaxWidth().height(110.dp).padding(vertical = 4.dp)) {
+            val slot = size.width / weeks.size
+            val bw = slot * 0.55f
+            weeks.forEachIndexed { i, w ->
+                val x = i * slot + (slot - bw) / 2
+                drawRoundRect(track, Offset(x, 0f), Size(bw, size.height), CornerRadius(bw / 3))
+                val h = size.height * (w.minutes.toFloat() / max)
+                if (h > 0) drawRoundRect(bar, Offset(x, size.height - h), Size(bw, h), CornerRadius(bw / 3))
+            }
+        }
+        Row(Modifier.fillMaxWidth()) {
+            weeks.forEachIndexed { i, w ->
+                Text(
+                    if (i == weeks.lastIndex) "Cette sem." else weekLabel.format(w.start),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryRow(s: Session, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(s.name, style = MaterialTheme.typography.titleMedium)
+                Text(formatDate(s.startedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "${formatDuration(s.durationMs())} · ${formatVolume(s.totalVolume)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            if (s.improved) {
+                Icon(Icons.Default.EmojiEvents, contentDescription = "Record battu", tint = MaterialTheme.colorScheme.tertiary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditProfileDialog(profile: Profile, onDismiss: () -> Unit, onSave: (Profile) -> Unit) {
+    var name by remember { mutableStateOf(profile.name) }
+    var goal by remember { mutableIntStateOf(profile.weeklyGoal) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Mon profil") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Prénom") }, singleLine = true)
+                Spacer(Modifier.height(16.dp))
+                Stepper(
+                    "Séances par semaine", "$goal",
+                    onMinus = { goal = (goal - 1).coerceAtLeast(1) },
+                    onPlus = { goal = (goal + 1).coerceAtMost(14) },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(Profile(name.trim().ifBlank { "Athlète" }, goal)) }) { Text("Enregistrer") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
+}
