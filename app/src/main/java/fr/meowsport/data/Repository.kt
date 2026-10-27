@@ -25,7 +25,7 @@ data class FinishResult(
     val improvements: List<String>,
 )
 
-class Repository(private val db: AppDatabase) {
+class Repository(internal val db: AppDatabase) {
     private val exercises = db.exercises()
     private val templates = db.templates()
     private val sessions = db.sessions()

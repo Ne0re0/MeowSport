@@ -17,6 +17,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercises WHERE id = :id")
     suspend fun get(id: Long): Exercise?
 
+    @Query("SELECT * FROM exercises")
+    suspend fun all(): List<Exercise>
+
     @Query("SELECT * FROM exercises WHERE `key` IN (:keys)")
     suspend fun byKeys(keys: List<String>): List<Exercise>
 
@@ -42,6 +45,13 @@ interface TemplateDao {
 
     @Query("SELECT * FROM templates WHERE id = :id")
     suspend fun get(id: Long): WorkoutTemplate?
+
+    @Transaction
+    @Query("SELECT * FROM templates ORDER BY createdAt")
+    suspend fun allFull(): List<TemplateFull>
+
+    @Query("SELECT * FROM templates")
+    suspend fun all(): List<WorkoutTemplate>
 
     @Insert
     suspend fun insert(t: WorkoutTemplate): Long
@@ -80,6 +90,13 @@ interface SessionDao {
 
     @Query("SELECT * FROM sessions WHERE endedAt IS NULL ORDER BY startedAt DESC LIMIT 1")
     fun observeActive(): Flow<Session?>
+
+    @Transaction
+    @Query("SELECT * FROM sessions WHERE endedAt IS NOT NULL ORDER BY startedAt")
+    suspend fun allFinishedFull(): List<SessionFull>
+
+    @Query("SELECT startedAt FROM sessions")
+    suspend fun startTimes(): List<Long>
 
     @Query("SELECT * FROM sessions WHERE endedAt IS NULL ORDER BY startedAt DESC LIMIT 1")
     suspend fun active(): Session?

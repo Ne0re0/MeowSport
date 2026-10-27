@@ -1,5 +1,7 @@
 package fr.meowsport.ui.profile
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,7 +21,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -95,7 +108,82 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
     val current = weeks.last()
     val totalMs = history.sumOf { it.durationMs() }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Profil") }) }) { padding ->
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    var menu by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val msg = runCatching {
+                    val json = app.backup.export()
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(json.toByteArray()) }
+                    }
+                }.fold(
+                    onSuccess = { "Export terminé ✓" },
+                    onFailure = { "L'export a échoué : ${it.message}" },
+                )
+                snackbar.showSnackbar(msg)
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val msg = runCatching {
+                    val json = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+                    }
+                    app.backup.import(json)
+                }.fold(
+                    onSuccess = { r ->
+                        buildString {
+                            append("Import terminé : ${r.templates} modèle${if (r.templates > 1) "s" else ""}")
+                            append(" et ${r.sessions} séance${if (r.sessions > 1) "s" else ""} ajouté${if (r.templates + r.sessions > 1) "s" else ""}")
+                            if (r.skipped > 0) append(" (${r.skipped} déjà présent${if (r.skipped > 1) "s" else ""})")
+                        }
+                    },
+                    onFailure = { it.message ?: "L'import a échoué." },
+                )
+                snackbar.showSnackbar(msg, withDismissAction = true)
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Profil") },
+                actions = {
+                    Box {
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Options") }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Exporter mes données") },
+                                leadingIcon = { Icon(Icons.Default.Upload, null) },
+                                onClick = {
+                                    menu = false
+                                    val day = java.time.LocalDate.now().toString()
+                                    exportLauncher.launch("meowsport-$day.json")
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Importer un fichier") },
+                                leadingIcon = { Icon(Icons.Default.Download, null) },
+                                onClick = {
+                                    menu = false
+                                    importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+                                },
+                            )
+                        }
+                    }
+                },
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),

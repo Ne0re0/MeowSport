@@ -15,6 +15,7 @@ class MeowSportApp : Application() {
         private set
     lateinit var profile: ProfilePrefs
         private set
+    val backup by lazy { fr.meowsport.data.Backup(repo) }
 
     override fun onCreate() {
         super.onCreate()

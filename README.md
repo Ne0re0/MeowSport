@@ -10,6 +10,7 @@ Application Android de suivi de musculation, 100 % hors ligne.
 - **Fin de séance** : le modèle est mis à jour avec ce que tu as fait. Si tu as fait mieux (plus lourd, plus de répétitions ou plus de volume), tu es félicité.
 - **Notes** : une note pour la prochaine fois sur la séance, et une note par exercice.
 - **Profil** : séances et temps passé cette semaine, objectif hebdomadaire, graphique sur 8 semaines, historique détaillé.
+- **Import / export** (menu ⋮ de l'écran Profil) : sauvegarde tes modèles et ton historique dans un fichier JSON, puis réimporte-le sur un autre téléphone. Réimporter le même fichier n'ajoute pas de doublons.
 - Chaque exercice a une illustration du corps avec le muscle travaillé en couleur. Ces dessins sont faits pour l'app, sans image tierce.
 
 ## Installer l'APK
