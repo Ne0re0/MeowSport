@@ -114,6 +114,7 @@ class Repository(internal val db: AppDatabase) {
     fun observeSession(id: Long) = sessions.observeFull(id)
     fun observeHistory() = sessions.observeFinished()
     suspend fun sessionFull(id: Long) = sessions.getFull(id)
+    suspend fun finishedSessionsFull() = sessions.allFinishedFull()
     suspend fun deleteSession(id: Long) = sessions.delete(id)
 
     /** Starts a session from a template, or a free session when [templateId] is null. */

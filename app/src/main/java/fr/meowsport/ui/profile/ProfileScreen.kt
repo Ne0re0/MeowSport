@@ -29,7 +29,9 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.FilterChip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,7 +69,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.meowsport.Profile
 import fr.meowsport.app
 import fr.meowsport.data.Session
+import fr.meowsport.data.Muscle
+import fr.meowsport.data.MuscleLevel
+import fr.meowsport.data.StrengthLevels
 import fr.meowsport.ui.components.Stepper
+import fr.meowsport.ui.components.WeightField
 import fr.meowsport.ui.formatDate
 import fr.meowsport.ui.formatDuration
 import fr.meowsport.ui.formatVolume
@@ -108,6 +114,12 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
     val current = weeks.last()
     val totalMs = history.sumOf { it.durationMs() }
 
+    val levels by produceState(emptyMap<Muscle, MuscleLevel>(), history, profile.bodyWeight, profile.female) {
+        val bw = profile.bodyWeight
+        value = if (bw == null) emptyMap() else withContext(Dispatchers.Default) {
+            StrengthLevels.compute(app.repo.finishedSessionsFull(), bw, profile.female)
+        }
+    }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -220,6 +232,13 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
                         WeeksChart(weeks)
                     }
                 }
+            }
+            item {
+                MuscleLevelsCard(
+                    hasBodyWeight = profile.bodyWeight != null,
+                    levels = levels,
+                    onSetBodyWeight = { editing = true },
+                )
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -357,6 +376,8 @@ private fun HistoryRow(s: Session, onClick: () -> Unit) {
 private fun EditProfileDialog(profile: Profile, onDismiss: () -> Unit, onSave: (Profile) -> Unit) {
     var name by remember { mutableStateOf(profile.name) }
     var goal by remember { mutableIntStateOf(profile.weeklyGoal) }
+    var bodyWeight by remember { mutableStateOf(profile.bodyWeight ?: 0.0) }
+    var female by remember { mutableStateOf(profile.female) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Mon profil") },
@@ -369,10 +390,29 @@ private fun EditProfileDialog(profile: Profile, onDismiss: () -> Unit, onSave: (
                     onMinus = { goal = (goal - 1).coerceAtLeast(1) },
                     onPlus = { goal = (goal + 1).coerceAtMost(14) },
                 )
+                Spacer(Modifier.height(16.dp))
+                WeightField(value = bodyWeight, onValue = { bodyWeight = it }, label = "Poids de corps (kg)")
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !female, onClick = { female = false }, label = { Text("Homme") })
+                    FilterChip(selected = female, onClick = { female = true }, label = { Text("Femme") })
+                }
+                Text(
+                    "Utilisés pour calculer ton niveau par muscle.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(Profile(name.trim().ifBlank { "Athlète" }, goal)) }) { Text("Enregistrer") }
+            TextButton(onClick = { onSave(
+                    Profile(
+                        name = name.trim().ifBlank { "Athlète" },
+                        weeklyGoal = goal,
+                        bodyWeight = bodyWeight.takeIf { it in 25.0..300.0 },
+                        female = female,
+                    ),
+                ) }) { Text("Enregistrer") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )

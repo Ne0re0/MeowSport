@@ -14,6 +14,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.DrawStyle
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
@@ -89,10 +92,34 @@ fun MuscleFigure(
     }
 }
 
-private fun DrawScope.drawMirrored(paths: List<String>, color: Color) {
-    for (d in paths) drawPath(PathCache.get(d), color)
+private fun DrawScope.drawMirrored(paths: List<String>, color: Color, style: DrawStyle = Fill) {
+    for (d in paths) drawPath(PathCache.get(d), color, style = style)
     withTransform({ scale(-1f, 1f, pivot = Offset(50f, 0f)) }) {
-        for (d in paths) drawPath(PathCache.get(d), color)
+        for (d in paths) drawPath(PathCache.get(d), color, style = style)
+    }
+}
+
+/** Whole body seen from the front or the back, each muscle filled with its own color (or left empty). */
+@Composable
+fun BodyMap(front: Boolean, fills: Map<Muscle, Color>, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val bodyColor = scheme.onSurface.copy(alpha = 0.08f)
+    val outline = scheme.onSurface.copy(alpha = 0.45f)
+    val muscles = if (front) BodyGeometry.front else BodyGeometry.back
+    Canvas(modifier) {
+        val s = min(size.width / 100f, size.height / 200f)
+        val dx = (size.width - 100f * s) / 2
+        val dy = (size.height - 200f * s) / 2
+        withTransform({
+            translate(dx, dy)
+            scale(s, s, pivot = Offset.Zero)
+        }) {
+            drawMirrored(BodyGeometry.body, bodyColor)
+            for ((m, paths) in muscles) {
+                fills[m]?.let { drawMirrored(paths, it) }
+                drawMirrored(paths, outline, Stroke(width = 0.5f))
+            }
+        }
     }
 }
 
