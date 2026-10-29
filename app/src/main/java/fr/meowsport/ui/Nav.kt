@@ -25,6 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import fr.meowsport.app
 import fr.meowsport.ui.exercises.ExercisePickerScreen
 import fr.meowsport.ui.history.SessionDetailScreen
 import fr.meowsport.ui.profile.ProfileScreen
@@ -48,8 +49,18 @@ const val PICKED_KEY = "picked_exercises"
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MeowSportNav() {
+fun MeowSportNav(openSessionRequest: Int = 0) {
     val nav = rememberNavController()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Tapping the session notification opens the running session.
+    androidx.compose.runtime.LaunchedEffect(openSessionRequest) {
+        if (openSessionRequest > 0) {
+            val active = context.app.repo.activeSession()
+            if (active != null && nav.currentBackStackEntry?.destination?.route != "session/{id}") {
+                nav.navigate(Routes.session(active.id)) { launchSingleTop = true }
+            }
+        }
+    }
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val showBar = route == Routes.HOME || route == Routes.PROFILE

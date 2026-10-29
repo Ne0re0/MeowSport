@@ -62,6 +62,8 @@ class LiveSessionViewModel(private val repo: Repository, val sessionId: Long) : 
         }
     }
 
+    fun togglePause() = viewModelScope.launch { repo.togglePause(sessionId) }
+
     fun skipRest() = viewModelScope.launch { repo.setRest(sessionId, null, 0) }
 
     fun finish() {

@@ -1,9 +1,8 @@
 package fr.meowsport
 
 import android.content.Context
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Build
+import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -15,8 +14,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-/** Watches the running session and buzzes when its rest timer reaches zero. */
+/**
+ * Watches the running session's rest timer: plays the countdown 3 s before the end,
+ * then vibrates at zero. A wake lock keeps the phone awake for the rest, screen off included.
+ */
 class RestAlarm(private val context: Context, private val repo: Repository) {
+    private val sound = CountdownSound(context)
+    private val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
 
     fun start(scope: CoroutineScope) {
         scope.launch {
@@ -28,15 +32,26 @@ class RestAlarm(private val context: Context, private val repo: Repository) {
                     if (endsAt == null) return@collectLatest
                     val wait = endsAt - System.currentTimeMillis()
                     if (wait > 0) {
-                        delay(wait)
-                        alert()
+                        val lock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MeowSport:rest")
+                        lock.acquire(wait + 10_000)
+                        try {
+                            if (wait > COUNTDOWN_MS) {
+                                delay(wait - COUNTDOWN_MS)
+                                sound.play()
+                            } else {
+                                delay(wait)
+                            }
+                            vibrate()
+                        } finally {
+                            if (lock.isHeld) lock.release()
+                        }
                     }
                     repo.setRest(sessionId, null, 0)
                 }
         }
     }
 
-    private fun alert() {
+    private fun vibrate() {
         runCatching {
             val vibrator = if (Build.VERSION.SDK_INT >= 31) {
                 (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
@@ -46,10 +61,9 @@ class RestAlarm(private val context: Context, private val repo: Repository) {
             }
             vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 350, 150, 350, 150, 600), -1))
         }
-        runCatching {
-            val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
-            tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ tone.release() }, 800)
-        }
+    }
+
+    private companion object {
+        const val COUNTDOWN_MS = 3_000L
     }
 }

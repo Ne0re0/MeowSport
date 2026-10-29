@@ -171,10 +171,10 @@ fun ActiveSessionBanner(s: Session, onClick: () -> Unit) {
             Icon(Icons.Default.Timer, contentDescription = null)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Séance en cours", style = MaterialTheme.typography.labelLarge)
+                Text(if (s.pausedAt != null) "Séance en pause" else "Séance en cours", style = MaterialTheme.typography.labelLarge)
                 Text(s.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(formatClock(now - s.startedAt), style = MaterialTheme.typography.titleLarge)
+            Text(formatClock(s.elapsedMs(now)), style = MaterialTheme.typography.titleLarge)
         }
     }
 }

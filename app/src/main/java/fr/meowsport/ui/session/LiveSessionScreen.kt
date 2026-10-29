@@ -1,5 +1,10 @@
 package fr.meowsport.ui.session
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -39,6 +44,11 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.core.content.ContextCompat
+import fr.meowsport.data.Session
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -106,6 +116,23 @@ fun LiveSessionScreen(
         onDispose { view.keepScreenOn = false }
     }
 
+    // Ask once for the notification that shows the clock during the session.
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // Session finished from the notification: go back to the home screen.
+    val endedAt = full?.session?.endedAt
+    LaunchedEffect(endedAt) {
+        if (endedAt != null && vm.result == null && !vm.finishing) onFinished()
+    }
+
     LaunchedEffect(picked) {
         if (picked != null) {
             vm.addExercises(picked.toList())
@@ -160,7 +187,7 @@ fun LiveSessionScreen(
             return@Scaffold
         }
         Column(Modifier.fillMaxSize().padding(padding)) {
-            SessionClock(vm, session.startedAt, doneSets, totalSets)
+            SessionClock(vm, session, doneSets, totalSets)
             RestArea(vm, session.restEndsAt, session.restTotalSec)
 
             LazyColumn(
@@ -276,13 +303,30 @@ fun LiveSessionScreen(
 
 /** Reads the ticking clock here only, so the rest of the screen does not redraw every tick. */
 @Composable
-private fun SessionClock(vm: LiveSessionViewModel, startedAt: Long, doneSets: Int, totalSets: Int) {
+private fun SessionClock(vm: LiveSessionViewModel, session: Session, doneSets: Int, totalSets: Int) {
     val now by vm.now.collectAsStateWithLifecycle()
+    val paused = session.pausedAt != null
     Column(
         Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(formatClock(now - startedAt), style = ClockStyle)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                formatClock(session.elapsedMs(now)),
+                style = ClockStyle,
+                color = if (paused) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.width(8.dp))
+            FilledTonalIconButton(onClick = { vm.togglePause() }) {
+                Icon(
+                    if (paused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    contentDescription = if (paused) "Reprendre le chrono" else "Mettre le chrono en pause",
+                )
+            }
+        }
+        if (paused) {
+            Text("En pause", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
         if (totalSets > 0) {
             LinearProgressIndicator(
                 progress = { doneSets.toFloat() / totalSets },

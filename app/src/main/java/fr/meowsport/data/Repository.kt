@@ -111,6 +111,7 @@ class Repository(internal val db: AppDatabase) {
     // ---------- Sessions ----------
 
     fun observeActiveSession() = sessions.observeActive()
+    suspend fun activeSession() = sessions.active()
     fun observeSession(id: Long) = sessions.observeFull(id)
     fun observeHistory() = sessions.observeFinished()
     suspend fun sessionFull(id: Long) = sessions.getFull(id)
@@ -227,14 +228,34 @@ class Repository(internal val db: AppDatabase) {
         sessions.setNote(sessionId, note)
     }
 
+    /** Pauses the session clock, or resumes it. Returns true when the clock is now paused. */
+    suspend fun togglePause(sessionId: Long): Boolean = db.withTransaction {
+        val s = sessions.get(sessionId) ?: return@withTransaction false
+        val now = System.currentTimeMillis()
+        if (s.pausedAt == null) {
+            sessions.update(s.copy(pausedAt = now))
+            true
+        } else {
+            sessions.update(s.copy(startedAt = s.startedAt + (now - s.pausedAt), pausedAt = null))
+            false
+        }
+    }
+
     suspend fun setRest(sessionId: Long, endsAt: Long?, totalSec: Int) {
         sessions.setRest(sessionId, endsAt, totalSec)
     }
 
     /** Ends the session, updates its template with what was done and lists the progress made. */
     suspend fun finishSession(sessionId: Long): FinishResult = db.withTransaction {
-        val full = sessions.getFull(sessionId) ?: error("Session $sessionId not found")
+        val loaded = sessions.getFull(sessionId) ?: error("Session $sessionId not found")
         val now = System.currentTimeMillis()
+        // A paused session ends at its pause time: move the start forward by the pause.
+        val paused = loaded.session.pausedAt
+        val full = if (paused != null) {
+            loaded.copy(session = loaded.session.copy(startedAt = loaded.session.startedAt + (now - paused), pausedAt = null))
+        } else {
+            loaded
+        }
         val improvements = mutableListOf<String>()
         var volume = 0.0
         var doneSets = 0

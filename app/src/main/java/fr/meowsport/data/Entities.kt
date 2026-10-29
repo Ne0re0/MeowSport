@@ -80,7 +80,12 @@ data class Session(
     /** When the current rest timer ends, or null. */
     val restEndsAt: Long? = null,
     val restTotalSec: Int = 0,
-)
+    /** When the session clock was paused, or null while it runs. */
+    val pausedAt: Long? = null,
+) {
+    /** Session clock, in ms. Pauses are removed by moving [startedAt] forward on resume. */
+    fun elapsedMs(now: Long = System.currentTimeMillis()) = ((pausedAt ?: now) - startedAt).coerceAtLeast(0)
+}
 
 @Entity(
     tableName = "session_exercises",
