@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
@@ -174,6 +175,21 @@ fun SettingsScreen(onBack: () -> Unit) {
             item {
                 Section("Statistiques") {
                     Toggle("La semaine commence le lundi", "Sinon le dimanche", s.weekStartsMonday) { v -> set { it.copy(weekStartsMonday = v) } }
+                }
+            }
+            item {
+                val update by app.updater.state.collectAsStateWithLifecycle()
+                Section("Mises à jour") {
+                    Label("Version installée : ${app.updater.currentName}")
+                    Toggle("Vérifier au lancement", "Te propose la nouvelle version, sans obligation", s.autoCheckUpdates) { v -> set { it.copy(autoCheckUpdates = v) } }
+                    OutlinedButton(
+                        onClick = { app.updater.check(manual = true) },
+                        enabled = update != fr.meowsport.UpdateState.Checking,
+                    ) {
+                        Icon(Icons.Default.Refresh, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (update == fr.meowsport.UpdateState.Checking) "Vérification…" else "Vérifier maintenant")
+                    }
                 }
             }
             item {

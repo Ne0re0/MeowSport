@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
             val settings by app.settings.state.collectAsState()
             MeowSportTheme(mode = settings.theme, accent = settings.accent) {
                 MeowSportNav(openSessionRequest = openSessionRequests.intValue)
+                fr.meowsport.ui.UpdateDialog()
             }
         }
         // Show the session notification as long as a session is running.
@@ -41,6 +42,12 @@ class MainActivity : ComponentActivity() {
                     .collect { id -> if (id != null) SessionService.start(this@MainActivity) }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        app.updater.checkOnLaunch()
+        app.updater.resumePendingInstall()
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -19,6 +19,7 @@ class MeowSportApp : Application() {
         private set
     lateinit var restAlarm: RestAlarm
         private set
+    val updater by lazy { Updater(this, settings, scope) }
     val backup by lazy { fr.meowsport.data.Backup(repo) }
 
     override fun onCreate() {

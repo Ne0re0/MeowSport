@@ -10,6 +10,7 @@ Application Android de suivi de musculation, 100 % hors ligne.
 - **Notification de séance** : pendant toute la séance, une notification affiche le chrono et le repos en cours, avec Pause / Reprendre et « Terminer et sauvegarder ». Le chrono se met aussi en pause depuis l'écran de séance.
 - **Bip de fin de repos** : un bip à 2 s, 1 s et 0 s, le dernier plus long et plus fort, en baissant le son des autres applis.
 - **Réglages** (roue dentée dans le Profil) : thème clair/sombre/système, couleur principale (violet par défaut), valeurs par défaut des nouveaux exercices, écran allumé, notification, repos automatique, volume des bips, vibration, mise à jour du modèle, félicitations, début de semaine.
+- **Mises à jour** : au lancement, l'appli regarde s'il existe une release GitHub plus récente et propose de l'installer (Plus tard / Ignorer cette version possibles). Rien ne s'affiche si GitHub est injoignable. Vérification manuelle dans Réglages.
 - **Photo de profil** : touche l'avatar dans le Profil pour choisir une photo.
 - **Fin de séance** : le modèle est mis à jour avec ce que tu as fait. Si tu as fait mieux (plus lourd, plus de répétitions ou plus de volume), tu es félicité.
 - **Notes** : une note pour la prochaine fois sur la séance, et une note par exercice.

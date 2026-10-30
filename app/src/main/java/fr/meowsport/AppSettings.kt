@@ -39,6 +39,9 @@ data class AppSettings(
     val showCongrats: Boolean = true,
     // Profile stats
     val weekStartsMonday: Boolean = true,
+    // Updates
+    val autoCheckUpdates: Boolean = true,
+    val skippedUpdate: Int = 0,
 )
 
 class SettingsStore(context: Context) {
@@ -66,6 +69,8 @@ class SettingsStore(context: Context) {
             updateTemplate = prefs.getBoolean("updateTemplate", d.updateTemplate),
             showCongrats = prefs.getBoolean("showCongrats", d.showCongrats),
             weekStartsMonday = prefs.getBoolean("weekStartsMonday", d.weekStartsMonday),
+            autoCheckUpdates = prefs.getBoolean("autoCheckUpdates", d.autoCheckUpdates),
+            skippedUpdate = prefs.getInt("skippedUpdate", d.skippedUpdate),
         )
     }
 
@@ -88,6 +93,8 @@ class SettingsStore(context: Context) {
             .putBoolean("updateTemplate", s.updateTemplate)
             .putBoolean("showCongrats", s.showCongrats)
             .putBoolean("weekStartsMonday", s.weekStartsMonday)
+            .putBoolean("autoCheckUpdates", s.autoCheckUpdates)
+            .putInt("skippedUpdate", s.skippedUpdate)
             .apply()
         _state.value = s
     }
