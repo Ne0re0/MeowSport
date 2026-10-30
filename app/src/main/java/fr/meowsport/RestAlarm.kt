@@ -3,6 +3,8 @@ package fr.meowsport
 import android.content.Context
 import android.os.PowerManager
 import fr.meowsport.data.Repository
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -32,7 +34,14 @@ class RestAlarm(private val context: Context, private val repo: Repository) {
                         try {
                             if (wait > COUNTDOWN_MS) {
                                 delay(wait - COUNTDOWN_MS)
-                                sound.play()
+                                // A sound problem must never stop the rest timer from working.
+                                try {
+                                    sound.play()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    Log.w("MeowSport", "Rest countdown sound failed", e)
+                                }
                             }
                             delay((endsAt - System.currentTimeMillis()).coerceAtLeast(0))
                         } finally {
