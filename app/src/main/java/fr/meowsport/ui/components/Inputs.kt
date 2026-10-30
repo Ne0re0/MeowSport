@@ -31,6 +31,13 @@ import fr.meowsport.data.formatWeight
 
 private fun parseNumber(s: String): Double? = s.replace(',', '.').trim().toDoubleOrNull()
 
+/** "05" becomes "5", so typing after a leftover 0 replaces it. "0,5" stays as is. */
+private fun dropLeadingZeros(s: String): String {
+    var t = s
+    while (t.length > 1 && t[0] == '0' && t[1].isDigit()) t = t.substring(1)
+    return t
+}
+
 /** Text field for a weight in kg. Accepts both "26,5" and "26.5". */
 @Composable
 fun WeightField(
@@ -41,12 +48,14 @@ fun WeightField(
 ) {
     var text by remember { mutableStateOf(formatWeight(value)) }
     LaunchedEffect(value) {
+        // An empty field stands for 0 while the user is typing: don't put the 0 back.
+        if (text.isEmpty() && value == 0.0) return@LaunchedEffect
         if (parseNumber(text) != value) text = formatWeight(value)
     }
     OutlinedTextField(
         value = text,
         onValueChange = { t ->
-            val clean = t.filter { it.isDigit() || it == ',' || it == '.' }.take(6)
+            val clean = dropLeadingZeros(t.filter { it.isDigit() || it == ',' || it == '.' }).take(6)
             text = clean
             val v = parseNumber(clean)
             if (v != null) onValue(v) else if (clean.isEmpty()) onValue(0.0)
@@ -69,12 +78,13 @@ fun IntField(
 ) {
     var text by remember { mutableStateOf(value.toString()) }
     LaunchedEffect(value) {
+        if (text.isEmpty() && value == 0) return@LaunchedEffect
         if (text.toIntOrNull() != value) text = value.toString()
     }
     OutlinedTextField(
         value = text,
         onValueChange = { t ->
-            val clean = t.filter { it.isDigit() }.take(3)
+            val clean = dropLeadingZeros(t.filter { it.isDigit() }).take(3)
             text = clean
             onValue(clean.toIntOrNull() ?: 0)
         },
