@@ -30,6 +30,7 @@ import fr.meowsport.ui.exercises.ExercisePickerScreen
 import fr.meowsport.ui.history.SessionDetailScreen
 import fr.meowsport.ui.profile.ProfileScreen
 import fr.meowsport.ui.session.LiveSessionScreen
+import fr.meowsport.ui.settings.SettingsScreen
 import fr.meowsport.ui.templates.ExamplesScreen
 import fr.meowsport.ui.templates.TemplateEditScreen
 import fr.meowsport.ui.templates.TemplatesScreen
@@ -39,6 +40,7 @@ object Routes {
     const val PROFILE = "profile"
     const val PICKER = "picker"
     const val EXAMPLES = "examples"
+    const val SETTINGS = "settings"
     fun template(id: Long?) = "template/${id ?: -1}"
     fun session(id: Long) = "session/$id"
     fun history(id: Long) = "history/$id"
@@ -106,7 +108,11 @@ fun MeowSportNav(openSessionRequest: Int = 0) {
                 ProfileScreen(
                     onOpenSession = { nav.navigate(Routes.history(it)) },
                     onResumeSession = { nav.navigate(Routes.session(it)) },
+                    onOpenSettings = { nav.navigate(Routes.SETTINGS) },
                 )
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(onBack = { nav.popBackStack() })
             }
             composable(
                 "template/{id}",

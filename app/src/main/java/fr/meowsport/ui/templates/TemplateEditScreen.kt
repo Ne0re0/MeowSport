@@ -69,7 +69,8 @@ fun TemplateEditScreen(
     onDone: () -> Unit,
 ) {
     val repo = LocalContext.current.app.repo
-    val vm: TemplateEditViewModel = viewModel(key = "template-$templateId") { TemplateEditViewModel(repo, templateId) }
+    val appSettings = LocalContext.current.app.settings
+    val vm: TemplateEditViewModel = viewModel(key = "template-$templateId") { TemplateEditViewModel(repo, appSettings, templateId) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var confirmLeave by remember { mutableStateOf(false) }

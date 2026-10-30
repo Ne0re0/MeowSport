@@ -10,6 +10,8 @@ data class Profile(
     /** Body weight in kg, or null when not set. */
     val bodyWeight: Double? = null,
     val female: Boolean = false,
+    /** Changes each time the profile photo changes; 0 when there is no photo. */
+    val photoVersion: Long = 0,
 )
 
 class ProfilePrefs(context: Context) {
@@ -22,6 +24,7 @@ class ProfilePrefs(context: Context) {
         weeklyGoal = prefs.getInt("weeklyGoal", 3),
         bodyWeight = prefs.getFloat("bodyWeight", 0f).takeIf { it > 0f }?.toDouble(),
         female = prefs.getBoolean("female", false),
+        photoVersion = prefs.getLong("photoVersion", 0L),
     )
 
     fun update(p: Profile) {
@@ -30,6 +33,7 @@ class ProfilePrefs(context: Context) {
             .putInt("weeklyGoal", p.weeklyGoal)
             .putFloat("bodyWeight", (p.bodyWeight ?: 0.0).toFloat())
             .putBoolean("female", p.female)
+            .putLong("photoVersion", p.photoVersion)
             .apply()
         _state.value = p
     }

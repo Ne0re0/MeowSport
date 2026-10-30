@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import fr.meowsport.SettingsStore
 import fr.meowsport.data.EditLine
 import fr.meowsport.data.Equipment
 import fr.meowsport.data.Repository
@@ -14,7 +15,11 @@ import kotlinx.coroutines.launch
 /** An edited line plus a stable key for the list. */
 data class UiLine(val key: Long, val data: EditLine)
 
-class TemplateEditViewModel(private val repo: Repository, private val templateId: Long?) : ViewModel() {
+class TemplateEditViewModel(
+    private val repo: Repository,
+    private val settings: SettingsStore,
+    private val templateId: Long?,
+) : ViewModel() {
     var name by mutableStateOf("")
     val lines = mutableStateListOf<UiLine>()
     var loaded by mutableStateOf(templateId == null)
@@ -64,12 +69,12 @@ class TemplateEditViewModel(private val repo: Repository, private val templateId
                     EditLine(
                         lineId = null,
                         exercise = ex,
-                        sets = 3,
-                        reps = 10,
+                        sets = settings.value.defaultSets,
+                        reps = settings.value.defaultReps,
                         weight = 0.0,
                         perHand = ex.equipment == Equipment.DUMBBELL || ex.equipment == Equipment.KETTLEBELL,
-                        restSetSec = 90,
-                        restAfterSec = 120,
+                        restSetSec = settings.value.defaultRestSetSec,
+                        restAfterSec = settings.value.defaultRestAfterSec,
                         note = "",
                     ),
                 )

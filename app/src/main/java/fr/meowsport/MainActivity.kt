@@ -12,7 +12,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import fr.meowsport.ui.MeowSportNav
 import fr.meowsport.ui.theme.MeowSportTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -24,15 +26,17 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handle(intent)
         setContent {
-            MeowSportTheme {
+            val settings by app.settings.state.collectAsState()
+            MeowSportTheme(mode = settings.theme, accent = settings.accent) {
                 MeowSportNav(openSessionRequest = openSessionRequests.intValue)
             }
         }
         // Show the session notification as long as a session is running.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                app.repo.observeActiveSession()
-                    .map { it?.id }
+                combine(app.repo.observeActiveSession(), app.settings.state) { s, set ->
+                    s?.id?.takeIf { set.sessionNotification }
+                }
                     .distinctUntilChanged()
                     .collect { id -> if (id != null) SessionService.start(this@MainActivity) }
             }

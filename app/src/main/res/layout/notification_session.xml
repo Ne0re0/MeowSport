@@ -41,7 +41,7 @@
             style="@style/TextAppearance.Compat.Notification.Title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#FFFF8A3D"
+            android:textColor="#FF8B5CF6"
             android:textSize="22sp"
             android:textStyle="bold" />
 

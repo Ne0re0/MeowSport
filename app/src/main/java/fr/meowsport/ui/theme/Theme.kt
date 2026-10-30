@@ -7,22 +7,25 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import fr.meowsport.Accent
+import fr.meowsport.ThemeMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-val Orange = Color(0xFFFF8A3D)
+val Violet = Color(0xFFB69CFF)
 val Gold = Color(0xFFFFC94D)
 
 private val Dark = darkColorScheme(
-    primary = Orange,
-    onPrimary = Color(0xFF2A1300),
-    primaryContainer = Color(0xFF5A2A00),
-    onPrimaryContainer = Color(0xFFFFDBC8),
-    secondary = Color(0xFFB9A4FF),
-    onSecondary = Color(0xFF241458),
-    secondaryContainer = Color(0xFF3A2E66),
-    onSecondaryContainer = Color(0xFFE7DEFF),
+    primary = Violet,
+    onPrimary = Color(0xFF22104F),
+    primaryContainer = Color(0xFF3D2A73),
+    onPrimaryContainer = Color(0xFFEADDFF),
+    secondary = Color(0xFFCCC2DC),
+    onSecondary = Color(0xFF332D41),
+    secondaryContainer = Color(0xFF4A4458),
+    onSecondaryContainer = Color(0xFFE8DEF8),
     tertiary = Gold,
     background = Color(0xFF17151A),
     onBackground = Color(0xFFE9E4EC),
@@ -40,26 +43,26 @@ private val Dark = darkColorScheme(
 )
 
 private val Light = lightColorScheme(
-    primary = Color(0xFFB65400),
+    primary = Color(0xFF6D3FD8),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFDBC8),
-    onPrimaryContainer = Color(0xFF341100),
-    secondary = Color(0xFF5B4BA8),
+    primaryContainer = Color(0xFFEADDFF),
+    onPrimaryContainer = Color(0xFF22005D),
+    secondary = Color(0xFF625B71),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE7DEFF),
-    onSecondaryContainer = Color(0xFF170B4A),
+    secondaryContainer = Color(0xFFE8DEF8),
+    onSecondaryContainer = Color(0xFF1D192B),
     tertiary = Color(0xFF8A6100),
-    background = Color(0xFFFFF8F5),
-    onBackground = Color(0xFF221A15),
-    surface = Color(0xFFFFF8F5),
-    onSurface = Color(0xFF221A15),
-    surfaceVariant = Color(0xFFF4DED3),
-    onSurfaceVariant = Color(0xFF52443C),
+    background = Color(0xFFFDF7FF),
+    onBackground = Color(0xFF1D1B20),
+    surface = Color(0xFFFDF7FF),
+    onSurface = Color(0xFF1D1B20),
+    surfaceVariant = Color(0xFFE7E0EC),
+    onSurfaceVariant = Color(0xFF49454F),
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFFFF1EA),
-    surfaceContainer = Color(0xFFFCEAE1),
-    surfaceContainerHigh = Color(0xFFF6E4DB),
-    surfaceContainerHighest = Color(0xFFF0DFD5),
+    surfaceContainerLow = Color(0xFFF7F2FA),
+    surfaceContainer = Color(0xFFF3EDF7),
+    surfaceContainerHigh = Color(0xFFECE6F0),
+    surfaceContainerHighest = Color(0xFFE6E0E9),
 )
 
 private val AppTypography = Typography().let { t ->
@@ -73,9 +76,29 @@ private val AppTypography = Typography().let { t ->
 val ClockStyle = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
 
 @Composable
-fun MeowSportTheme(content: @Composable () -> Unit) {
+fun MeowSportTheme(
+    mode: ThemeMode = ThemeMode.SYSTEM,
+    accent: Accent = Accent.VIOLET,
+    content: @Composable () -> Unit,
+) {
+    val dark = when (mode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+    val base = if (dark) Dark else Light
+    // The accent setting replaces the primary colors; violet is the default look.
+    val scheme = if (accent == Accent.VIOLET) base else {
+        val p = Color(if (dark) accent.dark else accent.light)
+        base.copy(
+            primary = p,
+            onPrimary = if (dark) Color(0xFF1A1A1A) else Color.White,
+            primaryContainer = lerp(p, base.background, if (dark) 0.65f else 0.8f),
+            onPrimaryContainer = if (dark) lerp(p, Color.White, 0.75f) else lerp(p, Color.Black, 0.6f),
+        )
+    }
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) Dark else Light,
+        colorScheme = scheme,
         typography = AppTypography,
         content = content,
     )

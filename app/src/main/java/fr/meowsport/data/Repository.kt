@@ -201,7 +201,14 @@ class Repository(internal val db: AppDatabase) {
         sessions.getExercise(sessionExerciseId)?.let { sessions.deleteExercise(it) }
     }
 
-    suspend fun addExercisesToSession(sessionId: Long, exerciseIds: List<Long>) = db.withTransaction {
+    suspend fun addExercisesToSession(
+        sessionId: Long,
+        exerciseIds: List<Long>,
+        sets: Int = 3,
+        reps: Int = 10,
+        restSetSec: Int = 90,
+        restAfterSec: Int = 120,
+    ) = db.withTransaction {
         val full = sessions.getFull(sessionId) ?: return@withTransaction
         var position = (full.exercises.maxOfOrNull { it.item.position } ?: -1) + 1
         for (id in exerciseIds) {
@@ -212,11 +219,11 @@ class Repository(internal val db: AppDatabase) {
                     exerciseId = id,
                     position = position++,
                     perHand = ex.equipment == Equipment.DUMBBELL,
-                    restSetSec = 90,
-                    restAfterSec = 120,
+                    restSetSec = restSetSec,
+                    restAfterSec = restAfterSec,
                 ),
             )
-            sessions.insertSets((0 until 3).map { SessionSet(sessionExerciseId = seId, setIndex = it, weight = 0.0, reps = 10) })
+            sessions.insertSets((0 until sets.coerceAtLeast(1)).map { SessionSet(sessionExerciseId = seId, setIndex = it, weight = 0.0, reps = reps) })
         }
     }
 
@@ -246,7 +253,7 @@ class Repository(internal val db: AppDatabase) {
     }
 
     /** Ends the session, updates its template with what was done and lists the progress made. */
-    suspend fun finishSession(sessionId: Long): FinishResult = db.withTransaction {
+    suspend fun finishSession(sessionId: Long, updateTemplate: Boolean = true): FinishResult = db.withTransaction {
         val loaded = sessions.getFull(sessionId) ?: error("Session $sessionId not found")
         val now = System.currentTimeMillis()
         // A paused session ends at its pause time: move the start forward by the pause.
@@ -283,7 +290,8 @@ class Repository(internal val db: AppDatabase) {
         if (template != null) {
             val lines = templates.lines(template.id).associateBy { it.id }
             var nextPosition = (lines.values.maxOfOrNull { it.position } ?: -1) + 1
-            for (ex in full.sorted) {
+            // The note and date are always kept; the weights and reps only when the setting allows it.
+            if (updateTemplate) for (ex in full.sorted) {
                 val done = ex.sets.filter { it.done }
                 if (done.isEmpty()) continue
                 val best = done.maxWith(compareBy<SessionSet>({ it.weight }, { it.reps }))

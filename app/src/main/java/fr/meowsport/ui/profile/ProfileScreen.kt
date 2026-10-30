@@ -25,6 +25,16 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Settings
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import fr.meowsport.ProfilePhoto
+import fr.meowsport.R
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.SnackbarHost
@@ -89,12 +99,13 @@ private data class WeekStat(val start: LocalDate, val count: Int, val minutes: L
 
 private fun Session.durationMs() = (endedAt ?: startedAt) - startedAt
 
-private fun weekStart(ms: Long, zone: ZoneId): LocalDate =
-    Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+private fun weekStart(ms: Long, zone: ZoneId, monday: Boolean): LocalDate =
+    Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
+        .with(TemporalAdjusters.previousOrSame(if (monday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit) {
+fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit, onOpenSettings: () -> Unit) {
     val app = LocalContext.current.app
     val history by remember { app.repo.observeHistory() }.collectAsStateWithLifecycle(initialValue = emptyList())
     val active by remember { app.repo.observeActiveSession() }.collectAsStateWithLifecycle(initialValue = null)
@@ -102,9 +113,11 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
     var editing by remember { mutableStateOf(false) }
 
     val zone = ZoneId.systemDefault()
-    val thisWeek = weekStart(System.currentTimeMillis(), zone)
-    val weeks = remember(history) {
-        val byWeek = history.groupBy { weekStart(it.startedAt, zone) }
+    val settings by app.settings.state.collectAsStateWithLifecycle()
+    val monday = settings.weekStartsMonday
+    val thisWeek = weekStart(System.currentTimeMillis(), zone, monday)
+    val weeks = remember(history, monday) {
+        val byWeek = history.groupBy { weekStart(it.startedAt, zone, monday) }
         (7 downTo 0).map { i ->
             val start = thisWeek.minusWeeks(i.toLong())
             val list = byWeek[start].orEmpty()
@@ -123,6 +136,29 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
+
+    val photo by produceState<ImageBitmap?>(null, profile.photoVersion) {
+        value = if (profile.photoVersion == 0L) null else withContext(Dispatchers.IO) {
+            ProfilePhoto.load(context)?.asImageBitmap()
+        }
+    }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val ok = runCatching { withContext(Dispatchers.IO) { ProfilePhoto.save(context, uri) } }.isSuccess
+                if (ok) {
+                    app.profile.update(app.profile.state.value.copy(photoVersion = System.currentTimeMillis()))
+                } else {
+                    snackbar.showSnackbar("Impossible d'utiliser cette image.")
+                }
+            }
+        }
+    }
+    fun pickPhoto() = photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    fun removePhoto() {
+        ProfilePhoto.delete(context)
+        app.profile.update(app.profile.state.value.copy(photoVersion = 0L))
+    }
     var menu by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -169,6 +205,7 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
             TopAppBar(
                 title = { Text("Profil") },
                 actions = {
+                    IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, contentDescription = "Réglages") }
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Options") }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -201,7 +238,15 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { Header(profile, onEdit = { editing = true }) }
+            item {
+                Header(
+                    profile = profile,
+                    photo = photo,
+                    onEdit = { editing = true },
+                    onPickPhoto = ::pickPhoto,
+                    onRemovePhoto = ::removePhoto,
+                )
+            }
             active?.let { s -> item { ActiveSessionBanner(s, onClick = { onResumeSession(s.id) }) } }
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
@@ -270,13 +315,48 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
 }
 
 @Composable
-private fun Header(profile: Profile, onEdit: () -> Unit) {
+private fun Header(
+    profile: Profile,
+    photo: ImageBitmap?,
+    onEdit: () -> Unit,
+    onPickPhoto: () -> Unit,
+    onRemovePhoto: () -> Unit,
+) {
+    var photoMenu by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("🐱", style = MaterialTheme.typography.headlineMedium)
+        Box {
+            Box(
+                Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .clickable { if (photo == null) onPickPhoto() else photoMenu = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (photo != null) {
+                    Image(photo, contentDescription = "Photo de profil", contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                } else {
+                    Image(
+                        painterResource(R.drawable.logo_cat),
+                        contentDescription = "Ajouter une photo de profil",
+                        modifier = Modifier.padding(8.dp).matchParentSize(),
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.PhotoCamera, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onPrimary)
+            }
+            DropdownMenu(expanded = photoMenu, onDismissRequest = { photoMenu = false }) {
+                DropdownMenuItem(text = { Text("Changer la photo") }, onClick = { photoMenu = false; onPickPhoto() })
+                DropdownMenuItem(text = { Text("Retirer la photo") }, onClick = { photoMenu = false; onRemovePhoto() })
+            }
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
@@ -406,7 +486,7 @@ private fun EditProfileDialog(profile: Profile, onDismiss: () -> Unit, onSave: (
         },
         confirmButton = {
             TextButton(onClick = { onSave(
-                    Profile(
+                    profile.copy(
                         name = name.trim().ifBlank { "Athlète" },
                         weeklyGoal = goal,
                         bodyWeight = bodyWeight.takeIf { it in 25.0..300.0 },

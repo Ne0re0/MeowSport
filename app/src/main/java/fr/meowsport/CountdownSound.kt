@@ -27,46 +27,51 @@ class CountdownSound(context: Context) {
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
 
-    /** Beeps at 0 s, 1 s and 2 s, i.e. 3, 2 and 1 seconds before the end of the rest. */
+    /**
+     * Beeps at 0 s, 1 s and 2 s, i.e. 2 and 1 seconds before the end of the rest and at zero.
+     * The last one is longer, higher and louder so it is easy to recognize.
+     */
     private val pcm: ShortArray by lazy {
-        val buf = ShortArray((SAMPLE_RATE * 2.3).toInt())
-        for (i in 0 until 3) tone(buf, startSec = i.toDouble(), lengthSec = 0.22, freq = 988.0)
+        val buf = ShortArray((SAMPLE_RATE * 2.6).toInt())
+        tone(buf, startSec = 0.0, lengthSec = 0.18, freq = 988.0, gain = 0.5)
+        tone(buf, startSec = 1.0, lengthSec = 0.18, freq = 988.0, gain = 0.5)
+        tone(buf, startSec = 2.0, lengthSec = 0.5, freq = 1319.0, gain = 1.0)
         buf
     }
 
-    private fun tone(buf: ShortArray, startSec: Double, lengthSec: Double, freq: Double) {
+    private fun tone(buf: ShortArray, startSec: Double, lengthSec: Double, freq: Double, gain: Double) {
         val start = (startSec * SAMPLE_RATE).toInt()
         val n = (lengthSec * SAMPLE_RATE).toInt()
         val fade = (0.01 * SAMPLE_RATE).toInt()
         for (i in 0 until n) {
             val env = min(1.0, min(i, n - i).toDouble() / fade)
-            val v = sin(2 * PI * freq * i / SAMPLE_RATE) * env * 0.8
+            val v = sin(2 * PI * freq * i / SAMPLE_RATE) * env * 0.95 * gain
             buf[start + i] = (v * Short.MAX_VALUE).toInt().toShort()
         }
     }
 
     /** Plays the countdown and suspends until it is over. Stops early if the coroutine is cancelled. */
-    suspend fun play() {
+    suspend fun play(volume: Float = 1f, duckOthers: Boolean = true) {
         val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
             .setAudioAttributes(attributes)
             .build()
-        audio.requestAudioFocus(focus)
+        if (duckOthers) audio.requestAudioFocus(focus)
         try {
             val played = try {
-                playTrack()
+                playTrack(volume)
                 true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 false
             }
-            if (!played) playFallback()
+            if (!played) playFallback(volume)
         } finally {
-            audio.abandonAudioFocusRequest(focus)
+            if (duckOthers) audio.abandonAudioFocusRequest(focus)
         }
     }
 
-    private suspend fun playTrack() {
+    private suspend fun playTrack(volume: Float) {
         val track = AudioTrack.Builder()
             .setAudioAttributes(attributes)
             .setAudioFormat(
@@ -83,9 +88,9 @@ class CountdownSound(context: Context) {
             check(track.state == AudioTrack.STATE_INITIALIZED) { "AudioTrack not initialized" }
             val written = track.write(pcm, 0, pcm.size)
             check(written == pcm.size) { "AudioTrack write failed: $written" }
-            track.setVolume(1f)
+            track.setVolume(volume.coerceIn(0f, 1f))
             track.play()
-            delay(2_400)
+            delay(2_700)
         } finally {
             runCatching { track.stop() }
             track.release()
@@ -93,14 +98,18 @@ class CountdownSound(context: Context) {
     }
 
     /** Simpler beeps on the media stream, used if the generated sound cannot be played. */
-    private suspend fun playFallback() {
-        val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+    private suspend fun playFallback(volume: Float) {
+        val tone = ToneGenerator(AudioManager.STREAM_MUSIC, (volume * 100).toInt().coerceIn(0, 100))
         try {
             repeat(3) { i ->
-                tone.startTone(ToneGenerator.TONE_PROP_BEEP, 220)
-                if (i < 2) delay(1_000)
+                if (i < 2) {
+                    tone.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
+                    delay(1_000)
+                } else {
+                    tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
+                }
             }
-            delay(400)
+            delay(600)
         } finally {
             tone.release()
         }

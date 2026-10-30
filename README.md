@@ -6,9 +6,11 @@ Application Android de suivi de musculation, 100 % hors ligne.
 
 - **Modèles de séance** : choisis tes exercices dans un catalogue de plus de 150 exercices de salle (recherche en anglais ou en français, filtre par muscle), ou crée les tiens.
 - Pour chaque exercice : poids (avec option « par main »), séries, répétitions, repos entre les séries et repos avant l'exercice suivant.
-- **Séance en direct** : chronomètre global, séries à cocher, poids et répétitions modifiables, minuteur de récupération lancé automatiquement (vibration et bip à la fin). L'écran reste allumé.
+- **Séance en direct** : chronomètre global, séries à cocher, poids et répétitions modifiables, minuteur de récupération lancé automatiquement (bips à la fin). L'écran reste allumé (réglable).
 - **Notification de séance** : pendant toute la séance, une notification affiche le chrono et le repos en cours, avec Pause / Reprendre et « Terminer et sauvegarder ». Le chrono se met aussi en pause depuis l'écran de séance.
-- **Bip de fin de repos** : un bip par seconde pendant les 3 dernières secondes, en baissant le son des autres applis.
+- **Bip de fin de repos** : un bip à 2 s, 1 s et 0 s, le dernier plus long et plus fort, en baissant le son des autres applis.
+- **Réglages** (roue dentée dans le Profil) : thème clair/sombre/système, couleur principale (violet par défaut), valeurs par défaut des nouveaux exercices, écran allumé, notification, repos automatique, volume des bips, vibration, mise à jour du modèle, félicitations, début de semaine.
+- **Photo de profil** : touche l'avatar dans le Profil pour choisir une photo.
 - **Fin de séance** : le modèle est mis à jour avec ce que tu as fait. Si tu as fait mieux (plus lourd, plus de répétitions ou plus de volume), tu es félicité.
 - **Notes** : une note pour la prochaine fois sur la séance, et une note par exercice.
 - **Profil** : séances et temps passé cette semaine, objectif hebdomadaire, graphique sur 8 semaines, historique détaillé.

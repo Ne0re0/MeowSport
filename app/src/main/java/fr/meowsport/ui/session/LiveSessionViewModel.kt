@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import fr.meowsport.SettingsStore
 import fr.meowsport.data.FinishResult
 import fr.meowsport.data.Repository
 import fr.meowsport.data.SessionFull
@@ -15,7 +16,11 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class LiveSessionViewModel(private val repo: Repository, val sessionId: Long) : ViewModel() {
+class LiveSessionViewModel(
+    private val repo: Repository,
+    private val settings: SettingsStore,
+    val sessionId: Long,
+) : ViewModel() {
 
     val session: StateFlow<SessionFull?> =
         repo.observeSession(sessionId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -35,7 +40,7 @@ class LiveSessionViewModel(private val repo: Repository, val sessionId: Long) : 
 
     fun toggleSet(setId: Long) = viewModelScope.launch {
         val rest = repo.toggleSet(setId)
-        if (rest != null && rest > 0) {
+        if (rest != null && rest > 0 && settings.value.autoStartRest) {
             repo.setRest(sessionId, System.currentTimeMillis() + rest * 1000L, rest)
         }
     }
@@ -47,7 +52,10 @@ class LiveSessionViewModel(private val repo: Repository, val sessionId: Long) : 
     fun addSet(sessionExerciseId: Long) = viewModelScope.launch { repo.addSet(sessionExerciseId) }
     fun removeLastSet(sessionExerciseId: Long) = viewModelScope.launch { repo.removeLastSet(sessionExerciseId) }
     fun removeExercise(sessionExerciseId: Long) = viewModelScope.launch { repo.removeSessionExercise(sessionExerciseId) }
-    fun addExercises(ids: List<Long>) = viewModelScope.launch { repo.addExercisesToSession(sessionId, ids) }
+    fun addExercises(ids: List<Long>) = viewModelScope.launch {
+        val s = settings.value
+        repo.addExercisesToSession(sessionId, ids, s.defaultSets, s.defaultReps, s.defaultRestSetSec, s.defaultRestAfterSec)
+    }
     fun exerciseNote(sessionExerciseId: Long, note: String) = viewModelScope.launch { repo.updateExerciseNote(sessionExerciseId, note) }
     fun sessionNote(note: String) = viewModelScope.launch { repo.updateSessionNote(sessionId, note) }
 
@@ -70,7 +78,7 @@ class LiveSessionViewModel(private val repo: Repository, val sessionId: Long) : 
         if (finishing) return
         finishing = true
         viewModelScope.launch {
-            result = repo.finishSession(sessionId)
+            result = repo.finishSession(sessionId, settings.value.updateTemplate)
             finishing = false
         }
     }

@@ -15,14 +15,19 @@ class MeowSportApp : Application() {
         private set
     lateinit var profile: ProfilePrefs
         private set
+    lateinit var settings: SettingsStore
+        private set
+    lateinit var restAlarm: RestAlarm
+        private set
     val backup by lazy { fr.meowsport.data.Backup(repo) }
 
     override fun onCreate() {
         super.onCreate()
         repo = Repository(AppDatabase.build(this))
         profile = ProfilePrefs(this)
+        settings = SettingsStore(this)
         scope.launch { repo.seedCatalog() }
-        RestAlarm(this, repo).start(scope)
+        restAlarm = RestAlarm(this, repo, settings).also { it.start(scope) }
     }
 }
 

@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -54,8 +55,8 @@ class SessionService : Service() {
                 // App scope: this service stops itself as soon as the session is over.
                 val context = applicationContext
                 app.scope.launch {
-                    val result = runCatching { app.repo.finishSession(id) }.getOrNull()
-                    if (result != null) showResult(context, result)
+                    val result = runCatching { app.repo.finishSession(id, app.settings.value.updateTemplate) }.getOrNull()
+                    if (result != null) showResult(context, result, app.settings.value.showCongrats)
                 }
             }
         }
@@ -64,7 +65,7 @@ class SessionService : Service() {
     }
 
     private suspend fun watch() {
-        repo.observeActiveSession().collect { s ->
+        combine(repo.observeActiveSession(), app.settings.state) { s, set -> s.takeIf { set.sessionNotification } }.collect { s ->
             if (s == null) {
                 ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -141,8 +142,8 @@ class SessionService : Service() {
         private const val EXTRA_SESSION = "session_id"
         const val EXTRA_OPEN_SESSION = "open_session"
 
-    private fun showResult(context: Context, r: FinishResult) {
-        val improved = r.improvements.isNotEmpty()
+    private fun showResult(context: Context, r: FinishResult, congrats: Boolean) {
+        val improved = congrats && r.improvements.isNotEmpty()
         val summary = "${formatDuration(r.durationMs)} · ${r.doneSets} séries · ${formatVolume(r.volume)}"
         val text = if (improved) "$summary\n" + r.improvements.joinToString("\n") { "💪 $it" } else summary
         createChannels(context)

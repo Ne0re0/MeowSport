@@ -265,7 +265,11 @@ private fun EmptyState() {
         Modifier.fillMaxWidth().padding(top = 64.dp, start = 24.dp, end = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("🐱💪", style = MaterialTheme.typography.displayMedium)
+        androidx.compose.foundation.Image(
+            androidx.compose.ui.res.painterResource(fr.meowsport.R.drawable.logo_cat),
+            contentDescription = null,
+            modifier = Modifier.size(140.dp),
+        )
         Spacer(Modifier.height(16.dp))
         Text("Aucun modèle pour l'instant", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))

@@ -103,7 +103,9 @@ fun LiveSessionScreen(
     onFinished: () -> Unit,
 ) {
     val repo = LocalContext.current.app.repo
-    val vm: LiveSessionViewModel = viewModel(key = "session-$sessionId") { LiveSessionViewModel(repo, sessionId) }
+    val appSettings = LocalContext.current.app.settings
+    val vm: LiveSessionViewModel = viewModel(key = "session-$sessionId") { LiveSessionViewModel(repo, appSettings, sessionId) }
+    val settings by appSettings.state.collectAsStateWithLifecycle()
     val full by vm.session.collectAsStateWithLifecycle()
     var menu by remember { mutableStateOf(false) }
     var confirmFinish by remember { mutableStateOf(false) }
@@ -111,8 +113,8 @@ fun LiveSessionScreen(
 
     // Keep the screen on while training.
     val view = LocalView.current
-    DisposableEffect(view) {
-        view.keepScreenOn = true
+    DisposableEffect(view, settings.keepScreenOn) {
+        view.keepScreenOn = settings.keepScreenOn
         onDispose { view.keepScreenOn = false }
     }
 
@@ -298,7 +300,7 @@ fun LiveSessionScreen(
         )
     }
 
-    vm.result?.let { r -> FinishDialog(r, onClose = onFinished) }
+    vm.result?.let { r -> FinishDialog(r, congrats = settings.showCongrats, onClose = onFinished) }
 }
 
 /** Reads the ticking clock here only, so the rest of the screen does not redraw every tick. */
@@ -539,8 +541,8 @@ private fun SetRow(number: Int, set: SessionSet, onToggle: () -> Unit, onValues:
 }
 
 @Composable
-private fun FinishDialog(r: FinishResult, onClose: () -> Unit) {
-    val improved = r.improvements.isNotEmpty()
+private fun FinishDialog(r: FinishResult, congrats: Boolean, onClose: () -> Unit) {
+    val improved = congrats && r.improvements.isNotEmpty()
     AlertDialog(
         onDismissRequest = onClose,
         icon = { Text(if (improved) "🏆" else "✅", style = MaterialTheme.typography.displaySmall) },
