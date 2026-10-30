@@ -8,7 +8,7 @@ Application Android de suivi de musculation, 100 % hors ligne.
 - Pour chaque exercice : poids (avec option « par main »), séries, répétitions, repos entre les séries et repos avant l'exercice suivant.
 - **Séance en direct** : chronomètre global, séries à cocher, poids et répétitions modifiables, minuteur de récupération lancé automatiquement (vibration et bip à la fin). L'écran reste allumé.
 - **Notification de séance** : pendant toute la séance, une notification affiche le chrono et le repos en cours, avec Pause / Reprendre et « Terminer et sauvegarder ». Le chrono se met aussi en pause depuis l'écran de séance.
-- **Bip de fin de repos** : « tut, tut, tuuut » pendant les 3 dernières secondes, en baissant le son des autres applis, puis vibration.
+- **Bip de fin de repos** : un bip par seconde pendant les 3 dernières secondes, en baissant le son des autres applis.
 - **Fin de séance** : le modèle est mis à jour avec ce que tu as fait. Si tu as fait mieux (plus lourd, plus de répétitions ou plus de volume), tu es félicité.
 - **Notes** : une note pour la prochaine fois sur la séance, et une note par exercice.
 - **Profil** : séances et temps passé cette semaine, objectif hebdomadaire, graphique sur 8 semaines, historique détaillé.

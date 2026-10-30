@@ -1,11 +1,7 @@
 package fr.meowsport
 
 import android.content.Context
-import android.os.Build
 import android.os.PowerManager
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import fr.meowsport.data.Repository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -15,8 +11,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * Watches the running session's rest timer: plays the countdown 3 s before the end,
- * then vibrates at zero. A wake lock keeps the phone awake for the rest, screen off included.
+ * Watches the running session's rest timer: one beep per second during the last 3 seconds. A wake lock keeps the phone awake for the rest, screen off included.
  */
 class RestAlarm(private val context: Context, private val repo: Repository) {
     private val sound = CountdownSound(context)
@@ -38,28 +33,14 @@ class RestAlarm(private val context: Context, private val repo: Repository) {
                             if (wait > COUNTDOWN_MS) {
                                 delay(wait - COUNTDOWN_MS)
                                 sound.play()
-                            } else {
-                                delay(wait)
                             }
-                            vibrate()
+                            delay((endsAt - System.currentTimeMillis()).coerceAtLeast(0))
                         } finally {
                             if (lock.isHeld) lock.release()
                         }
                     }
                     repo.setRest(sessionId, null, 0)
                 }
-        }
-    }
-
-    private fun vibrate() {
-        runCatching {
-            val vibrator = if (Build.VERSION.SDK_INT >= 31) {
-                (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            }
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 350, 150, 350, 150, 600), -1))
         }
     }
 

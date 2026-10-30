@@ -83,9 +83,8 @@ class SessionService : Service() {
         val elapsedNow = SystemClock.elapsedRealtime()
         val paused = s.pausedAt != null
         val views = RemoteViews(packageName, R.layout.notification_session)
-        views.setTextViewText(R.id.title, s.name)
+        views.setTextViewText(R.id.title, if (paused) "⏸ En pause · ${s.name}" else s.name)
         views.setChronometer(R.id.session_clock, elapsedNow - s.elapsedMs(now), null, !paused)
-        views.setTextViewText(R.id.status, if (paused) "⏸ En pause" else "Séance en cours")
         val restEnd = s.restEndsAt
         if (restEnd != null && restEnd > now) {
             views.setViewVisibility(R.id.rest_box, View.VISIBLE)
@@ -94,17 +93,16 @@ class SessionService : Service() {
         } else {
             views.setViewVisibility(R.id.rest_box, View.GONE)
         }
+        views.setImageViewResource(R.id.btn_pause, if (paused) R.drawable.ic_notif_play else R.drawable.ic_notif_pause)
+        views.setContentDescription(R.id.btn_pause, getString(if (paused) R.string.notif_resume else R.string.notif_pause))
+        views.setOnClickPendingIntent(R.id.btn_pause, serviceIntent(ACTION_TOGGLE_PAUSE, s.id, 1))
+        views.setOnClickPendingIntent(R.id.btn_finish, serviceIntent(ACTION_FINISH, s.id, 2))
 
+        // Buttons live in the compact view itself, so nothing needs to be expanded.
         return baseBuilder(s.name)
-            .setContentText(if (paused) "En pause" else "Séance en cours")
+            .setContentText(if (paused) "En pause" else s.name)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(views)
-            .addAction(
-                0,
-                if (paused) "▶ Reprendre" else "⏸ Pause",
-                serviceIntent(ACTION_TOGGLE_PAUSE, s.id, 1),
-            )
-            .addAction(0, "✓ Terminer et sauvegarder", serviceIntent(ACTION_FINISH, s.id, 2))
             .build()
     }
 

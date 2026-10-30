@@ -11,27 +11,20 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/title"
-            style="@style/TextAppearance.Compat.Notification.Title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1" />
-
         <Chronometer
             android:id="@+id/session_clock"
             style="@style/TextAppearance.Compat.Notification.Title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="26sp"
+            android:textSize="22sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/status"
+            android:id="@+id/title"
             style="@style/TextAppearance.Compat.Notification.Info"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:ellipsize="end"
             android:maxLines="1" />
     </LinearLayout>
 
@@ -39,14 +32,9 @@
         android:id="@+id/rest_box"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
         android:gravity="end"
         android:orientation="vertical">
-
-        <TextView
-            style="@style/TextAppearance.Compat.Notification.Info"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Repos" />
 
         <Chronometer
             android:id="@+id/rest_clock"
@@ -54,7 +42,32 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#FFFF8A3D"
-            android:textSize="26sp"
+            android:textSize="22sp"
             android:textStyle="bold" />
+
+        <TextView
+            style="@style/TextAppearance.Compat.Notification.Info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/notif_rest" />
     </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btn_pause"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/notif_btn_bg"
+        android:contentDescription="@string/notif_pause"
+        android:scaleType="center"
+        android:src="@drawable/ic_notif_pause" />
+
+    <ImageButton
+        android:id="@+id/btn_finish"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/notif_btn_bg"
+        android:contentDescription="@string/notif_finish"
+        android:scaleType="center"
+        android:src="@drawable/ic_notif_finish" />
 </LinearLayout>

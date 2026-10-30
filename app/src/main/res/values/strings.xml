@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">MeowSport</string>
+    <string name="notif_rest">Repos</string>
+    <string name="notif_pause">Pause</string>
+    <string name="notif_resume">Reprendre</string>
+    <string name="notif_finish">Terminer et sauvegarder</string>
 </resources>

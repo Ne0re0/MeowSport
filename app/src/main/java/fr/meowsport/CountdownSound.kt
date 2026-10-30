@@ -12,7 +12,7 @@ import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * "Tut, tut, tuuuut" played during the last 3 seconds of a rest.
+ * One beep per second during the last 3 seconds of a rest.
  * It asks for short audio focus with ducking, so music from other apps gets quieter meanwhile.
  */
 class CountdownSound(context: Context) {
@@ -22,12 +22,10 @@ class CountdownSound(context: Context) {
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
 
-    /** 3 seconds of sound: short beep at 0 s and 1 s, long higher beep from 2 s to 3 s. */
+    /** Beeps at 0 s, 1 s and 2 s, i.e. 3, 2 and 1 seconds before the end of the rest. */
     private val pcm: ShortArray by lazy {
-        val buf = ShortArray(SAMPLE_RATE * 3)
-        tone(buf, startSec = 0.0, lengthSec = 0.18, freq = 880.0)
-        tone(buf, startSec = 1.0, lengthSec = 0.18, freq = 880.0)
-        tone(buf, startSec = 2.0, lengthSec = 0.9, freq = 1320.0)
+        val buf = ShortArray((SAMPLE_RATE * 2.3).toInt())
+        for (i in 0 until 3) tone(buf, startSec = i.toDouble(), lengthSec = 0.22, freq = 988.0)
         buf
     }
 
@@ -63,7 +61,7 @@ class CountdownSound(context: Context) {
             audio.requestAudioFocus(focus)
             track.write(pcm, 0, pcm.size)
             track.play()
-            delay(3_100)
+            delay(2_400)
         } finally {
             runCatching { track.stop() }
             track.release()
