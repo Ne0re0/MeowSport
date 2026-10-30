@@ -14,7 +14,7 @@ import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * One beep per second during the last 3 seconds of a rest.
+ * Countdown at the end of a rest: soft beeps at 2 s and 1 s, a loud distinct signal at zero.
  * It asks for short audio focus with ducking, so music from other apps gets quieter meanwhile.
  *
  * The sound uses the "navigation guidance" usage, like GPS voice prompts: it follows the media
@@ -28,25 +28,52 @@ class CountdownSound(context: Context) {
         .build()
 
     /**
-     * Beeps at 0 s, 1 s and 2 s, i.e. 2 and 1 seconds before the end of the rest and at zero.
-     * The last one is longer, higher and louder so it is easy to recognize.
+     * Two soft "tut" at 2 s and 1 s, then a different, much louder "tuuut" at zero:
+     * a rising two-note signal with a rich, buzzy timbre, about four times louder than the short beeps.
      */
     private val pcm: ShortArray by lazy {
-        val buf = ShortArray((SAMPLE_RATE * 2.6).toInt())
-        tone(buf, startSec = 0.0, lengthSec = 0.18, freq = 988.0, gain = 0.5)
-        tone(buf, startSec = 1.0, lengthSec = 0.18, freq = 988.0, gain = 0.5)
-        tone(buf, startSec = 2.0, lengthSec = 0.5, freq = 1319.0, gain = 1.0)
+        val buf = ShortArray((SAMPLE_RATE * 2.8).toInt())
+        tone(buf, startSec = 0.0, lengthSec = 0.15, freq = 880.0, gain = 0.25)
+        tone(buf, startSec = 1.0, lengthSec = 0.15, freq = 880.0, gain = 0.25)
+        finalSignal(buf, startSec = 2.0)
         buf
     }
 
+    /** Soft pure beep. */
     private fun tone(buf: ShortArray, startSec: Double, lengthSec: Double, freq: Double, gain: Double) {
         val start = (startSec * SAMPLE_RATE).toInt()
         val n = (lengthSec * SAMPLE_RATE).toInt()
         val fade = (0.01 * SAMPLE_RATE).toInt()
         for (i in 0 until n) {
             val env = min(1.0, min(i, n - i).toDouble() / fade)
-            val v = sin(2 * PI * freq * i / SAMPLE_RATE) * env * 0.95 * gain
+            val v = sin(2 * PI * freq * i / SAMPLE_RATE) * env * gain
             buf[start + i] = (v * Short.MAX_VALUE).toInt().toShort()
+        }
+    }
+
+    /**
+     * Loud end signal: a short note then a long higher one, each a square-like wave
+     * (odd harmonics) at full scale, which the ear hears as much louder than a sine.
+     */
+    private fun finalSignal(buf: ShortArray, startSec: Double) {
+        val notes = listOf(
+            Triple(0.0, 0.12, 1319.0),
+            Triple(0.15, 0.6, 1760.0),
+        )
+        val fade = (0.008 * SAMPLE_RATE).toInt()
+        for ((offset, length, freq) in notes) {
+            val start = ((startSec + offset) * SAMPLE_RATE).toInt()
+            val n = (length * SAMPLE_RATE).toInt()
+            for (i in 0 until n) {
+                val t = i.toDouble() / SAMPLE_RATE
+                val attack = min(1.0, i.toDouble() / fade)
+                val release = min(1.0, (n - i).toDouble() / (0.06 * SAMPLE_RATE))
+                val w = 2 * PI * freq * t
+                // Odd harmonics, normalized so the peak stays just under full scale.
+                val wave = (sin(w) + sin(3 * w) / 3 + sin(5 * w) / 5) / 0.94
+                val v = (wave * attack * release).coerceIn(-0.98, 0.98)
+                buf[start + i] = (v * Short.MAX_VALUE).toInt().toShort()
+            }
         }
     }
 
@@ -90,7 +117,7 @@ class CountdownSound(context: Context) {
             check(written == pcm.size) { "AudioTrack write failed: $written" }
             track.setVolume(volume.coerceIn(0f, 1f))
             track.play()
-            delay(2_700)
+            delay(2_900)
         } finally {
             runCatching { track.stop() }
             track.release()
@@ -106,7 +133,7 @@ class CountdownSound(context: Context) {
                     tone.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
                     delay(1_000)
                 } else {
-                    tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
+                    tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 600)
                 }
             }
             delay(600)
