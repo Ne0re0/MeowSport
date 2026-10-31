@@ -23,6 +23,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercises WHERE `key` IN (:keys)")
     suspend fun byKeys(keys: List<String>): List<Exercise>
 
+    @Query("UPDATE exercises SET note = :note WHERE id = :id")
+    suspend fun setNote(id: Long, note: String)
+
     @Query("UPDATE exercises SET name = :name, nameFr = :nameFr WHERE `key` = :key")
     suspend fun updateNames(key: String, name: String, nameFr: String)
 

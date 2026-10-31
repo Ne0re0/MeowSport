@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SessionExercise::class,
         SessionSet::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,9 +31,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE exercises ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+                // Keep the notes already written in templates: the latest one becomes the exercise note.
+                db.execSQL(
+                    """
+                    UPDATE exercises SET note = (
+                        SELECT te.note FROM template_exercises te
+                        WHERE te.exerciseId = exercises.id AND te.note != ''
+                        ORDER BY te.id DESC LIMIT 1
+                    )
+                    WHERE EXISTS (
+                        SELECT 1 FROM template_exercises te WHERE te.exerciseId = exercises.id AND te.note != ''
+                    )
+                    """.trimIndent(),
+                )
+            }
+        }
+
         fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "meowsport.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }

@@ -186,6 +186,9 @@ private fun LineEditor(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (line.exercise.note.isNotBlank()) {
+                        Text("📌 ${line.exercise.note}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                    }
                 }
                 Column {
                     IconButton(onClick = { onMove(-1) }, enabled = !isFirst, modifier = Modifier.size(32.dp)) {

@@ -270,6 +270,9 @@ class Repository(internal val db: AppDatabase) {
         }
     }
 
+    /** Saves the persistent note of an exercise. An empty note removes it. */
+    suspend fun setExerciseNote(exerciseId: Long, note: String) = exercises.setNote(exerciseId, note.trim())
+
     suspend fun updateExerciseNote(sessionExerciseId: Long, note: String) {
         sessions.setExerciseNote(sessionExerciseId, note)
     }

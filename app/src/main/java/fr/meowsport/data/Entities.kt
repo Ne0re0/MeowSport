@@ -1,5 +1,6 @@
 package fr.meowsport.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -19,6 +20,8 @@ data class Exercise(
     val secondary: String = "",
     val equipment: Equipment,
     val isCustom: Boolean = false,
+    /** The user's own note on this exercise, shown every time until removed. */
+    @ColumnInfo(defaultValue = "") val note: String = "",
 ) {
     val secondaryMuscles: List<Muscle>
         get() = secondary.split(',').mapNotNull { s -> Muscle.entries.firstOrNull { it.name == s.trim() } }

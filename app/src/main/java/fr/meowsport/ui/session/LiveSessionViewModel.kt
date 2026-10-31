@@ -63,7 +63,7 @@ class LiveSessionViewModel(
         val s = settings.value
         repo.addExercisesToSession(sessionId, ids, s.defaultSets, s.defaultReps, s.defaultRestSetSec, s.defaultRestAfterSec)
     }
-    fun exerciseNote(sessionExerciseId: Long, note: String) = viewModelScope.launch { repo.updateExerciseNote(sessionExerciseId, note) }
+    fun exerciseNote(exerciseId: Long, note: String) = viewModelScope.launch { repo.setExerciseNote(exerciseId, note) }
     fun sessionNote(note: String) = viewModelScope.launch { repo.updateSessionNote(sessionId, note) }
 
     fun adjustRest(deltaSec: Int) = viewModelScope.launch {

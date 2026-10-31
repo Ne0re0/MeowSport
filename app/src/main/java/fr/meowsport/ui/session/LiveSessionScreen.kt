@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -55,6 +56,7 @@ import androidx.core.content.ContextCompat
 import fr.meowsport.data.Session
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -244,7 +246,7 @@ fun LiveSessionScreen(
                         isLast = exercises.lastOrNull()?.item?.id == ex.item.id,
                         onMove = { vm.moveExercise(ex.item.id, it) },
                         onRest = { set, after -> vm.setRest(ex.item.id, set, after) },
-                        onNote = { vm.exerciseNote(ex.item.id, it) },
+                        onNote = { vm.exerciseNote(ex.exercise.id, it) },
                     )
                 }
                 item {
@@ -429,7 +431,14 @@ private fun ExerciseBlock(
             onSave = { set, after -> editRest = false; onRest(set, after) },
         )
     }
-    var showNote by rememberSaveable(ex.item.id) { mutableStateOf(ex.item.note.isNotBlank()) }
+    var editNote by remember { mutableStateOf(false) }
+    if (editNote) {
+        NoteDialog(
+            initial = ex.exercise.note,
+            onDismiss = { editNote = false },
+            onSave = { editNote = false; onNote(it) },
+        )
+    }
     val sets = ex.sortedSets
     val allDone = sets.isNotEmpty() && sets.all { it.done }
 
@@ -476,9 +485,9 @@ private fun ExerciseBlock(
                             onClick = { menu = false; onRemoveSet() },
                         )
                         DropdownMenuItem(
-                            text = { Text("Note sur l'exercice") },
+                            text = { Text(if (ex.exercise.note.isBlank()) "Ajouter une note" else "Modifier la note") },
                             leadingIcon = { Icon(Icons.Default.Edit, null) },
-                            onClick = { menu = false; showNote = true },
+                            onClick = { menu = false; editNote = true },
                         )
                         DropdownMenuItem(
                             text = { Text("Monter") },
@@ -510,6 +519,10 @@ private fun ExerciseBlock(
                     }
                 }
             }
+            if (ex.exercise.note.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                ExerciseNote(ex.exercise.note, onEdit = { editNote = true }, onDelete = { onNote("") })
+            }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Série", Modifier.width(44.dp), style = MaterialTheme.typography.labelMedium)
@@ -530,15 +543,6 @@ private fun ExerciseBlock(
                 Icon(Icons.Default.Add, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Série")
-            }
-            if (showNote) {
-                var note by rememberSaveable(ex.item.id) { mutableStateOf(ex.item.note) }
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it; onNote(it) },
-                    label = { Text("Note sur l'exercice") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
             }
         }
     }
@@ -657,6 +661,69 @@ private fun RestDialog(restSetSec: Int, restAfterSec: Int, onDismiss: () -> Unit
             }
         },
         confirmButton = { TextButton(onClick = { onSave(between, after) }) { Text("Enregistrer") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
+}
+
+/** The persistent note of an exercise, inside its card, with edit and delete buttons. */
+@Composable
+private fun ExerciseNote(note: String, onEdit: () -> Unit, onDelete: () -> Unit) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("📌", style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.width(8.dp))
+            Text(note, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).clickable(onClick = onEdit))
+            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Edit, contentDescription = "Modifier la note", Modifier.size(18.dp))
+            }
+            IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Delete, contentDescription = "Supprimer la note", Modifier.size(18.dp))
+            }
+        }
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Supprimer la note ?") },
+            text = { Text(note) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Supprimer") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Annuler") } },
+        )
+    }
+}
+
+@Composable
+private fun NoteDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Note sur l'exercice") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = { Text("Ex. : siège cran 4, prise serrée…") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Elle restera affichée sur cet exercice à chaque séance, jusqu'à ce que tu la supprimes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("Enregistrer") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )
 }
