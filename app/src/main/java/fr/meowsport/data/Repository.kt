@@ -203,6 +203,21 @@ class Repository(internal val db: AppDatabase) {
         sessions.setsOf(sessionExerciseId).lastOrNull()?.let { sessions.deleteSet(it) }
     }
 
+    /** Moves a session exercise up (-1) or down (+1). */
+    suspend fun moveSessionExercise(sessionId: Long, sessionExerciseId: Long, delta: Int) = db.withTransaction {
+        val list = sessions.getFull(sessionId)?.sorted?.map { it.item }?.toMutableList() ?: return@withTransaction
+        val i = list.indexOfFirst { it.id == sessionExerciseId }
+        val j = i + delta
+        if (i < 0 || j !in list.indices) return@withTransaction
+        list.add(j, list.removeAt(i))
+        list.forEachIndexed { index, e -> if (e.position != index) sessions.updateExercise(e.copy(position = index)) }
+    }
+
+    suspend fun setSessionExerciseRest(sessionExerciseId: Long, restSetSec: Int, restAfterSec: Int) {
+        val e = sessions.getExercise(sessionExerciseId) ?: return
+        sessions.updateExercise(e.copy(restSetSec = restSetSec, restAfterSec = restAfterSec))
+    }
+
     suspend fun removeSessionExercise(sessionExerciseId: Long) {
         sessions.getExercise(sessionExerciseId)?.let { sessions.deleteExercise(it) }
     }
@@ -319,6 +334,7 @@ class Repository(internal val db: AppDatabase) {
             val lines = templates.lines(template.id).associateBy { it.id }
             var nextPosition = (lines.values.maxOfOrNull { it.position } ?: -1) + 1
             // The note and date are always kept; the weights and reps only when the setting allows it.
+            val insertedLines = mutableMapOf<Long, Long>()
             if (updateTemplate) for (ex in full.sorted) {
                 val done = ex.sets.filter { it.done }
                 if (done.isEmpty()) continue
@@ -329,6 +345,8 @@ class Repository(internal val db: AppDatabase) {
                         line.copy(
                             exerciseId = ex.item.exerciseId,
                             perHand = ex.item.perHand,
+                            restSetSec = ex.item.restSetSec,
+                            restAfterSec = ex.item.restAfterSec,
                             sets = ex.sets.size,
                             reps = best.reps,
                             weight = best.weight,
@@ -336,7 +354,7 @@ class Repository(internal val db: AppDatabase) {
                         ),
                     )
                 } else {
-                    templates.insertLine(
+                    insertedLines[ex.item.id] = templates.insertLine(
                         TemplateExercise(
                             templateId = template.id,
                             exerciseId = ex.item.exerciseId,
@@ -350,6 +368,18 @@ class Repository(internal val db: AppDatabase) {
                             note = ex.item.note,
                         ),
                     )
+                }
+            }
+            if (updateTemplate) {
+                // The template follows the order of the session: its exercises first, then the ones not done today.
+                val inSession = full.sorted.mapNotNull { ex ->
+                    ex.item.templateExerciseId?.takeIf { it in lines } ?: insertedLines[ex.item.id]
+                }.distinct()
+                val rest = lines.values.sortedBy { it.position }.map { it.id }.filter { it !in inSession }
+                val current = templates.lines(template.id).associateBy { it.id }
+                (inSession + rest).forEachIndexed { index, lineId ->
+                    val line = current[lineId] ?: return@forEachIndexed
+                    if (line.position != index) templates.updateLine(line.copy(position = index))
                 }
             }
             templates.update(template.copy(nextNote = full.session.note, lastPerformedAt = now))

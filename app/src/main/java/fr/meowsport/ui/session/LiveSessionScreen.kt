@@ -35,6 +35,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -237,6 +240,10 @@ fun LiveSessionScreen(
                         onRemoveSet = { vm.removeLastSet(ex.item.id) },
                         onRemoveExercise = { vm.removeExercise(ex.item.id) },
                         onReplace = { replaceTarget = ex.item.id; onPickReplacement(ex.exercise.muscle) },
+                        isFirst = exercises.firstOrNull()?.item?.id == ex.item.id,
+                        isLast = exercises.lastOrNull()?.item?.id == ex.item.id,
+                        onMove = { vm.moveExercise(ex.item.id, it) },
+                        onRest = { set, after -> vm.setRest(ex.item.id, set, after) },
                         onNote = { vm.exerciseNote(ex.item.id, it) },
                     )
                 }
@@ -406,9 +413,22 @@ private fun ExerciseBlock(
     onRemoveSet: () -> Unit,
     onRemoveExercise: () -> Unit,
     onReplace: () -> Unit,
+    isFirst: Boolean,
+    isLast: Boolean,
+    onMove: (Int) -> Unit,
+    onRest: (Int, Int) -> Unit,
     onNote: (String) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
+    var editRest by remember { mutableStateOf(false) }
+    if (editRest) {
+        RestDialog(
+            restSetSec = ex.item.restSetSec,
+            restAfterSec = ex.item.restAfterSec,
+            onDismiss = { editRest = false },
+            onSave = { set, after -> editRest = false; onRest(set, after) },
+        )
+    }
     var showNote by rememberSaveable(ex.item.id) { mutableStateOf(ex.item.note.isNotBlank()) }
     val sets = ex.sortedSets
     val allDone = sets.isNotEmpty() && sets.all { it.done }
@@ -459,6 +479,23 @@ private fun ExerciseBlock(
                             text = { Text("Note sur l'exercice") },
                             leadingIcon = { Icon(Icons.Default.Edit, null) },
                             onClick = { menu = false; showNote = true },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Monter") },
+                            leadingIcon = { Icon(Icons.Default.KeyboardArrowUp, null) },
+                            enabled = !isFirst,
+                            onClick = { menu = false; onMove(-1) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Descendre") },
+                            leadingIcon = { Icon(Icons.Default.KeyboardArrowDown, null) },
+                            enabled = !isLast,
+                            onClick = { menu = false; onMove(1) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Temps de repos") },
+                            leadingIcon = { Icon(Icons.Default.Timer, null) },
+                            onClick = { menu = false; editRest = true },
                         )
                         DropdownMenuItem(
                             text = { Text("Remplacer l'exercice") },
@@ -587,5 +624,39 @@ private fun FinishDialog(r: FinishResult, congrats: Boolean, onClose: () -> Unit
             }
         },
         confirmButton = { Button(onClick = onClose) { Text("OK") } },
+    )
+}
+
+/** Edits the rest times of one exercise of the session. */
+@Composable
+private fun RestDialog(restSetSec: Int, restAfterSec: Int, onDismiss: () -> Unit, onSave: (Int, Int) -> Unit) {
+    var between by remember { mutableStateOf(restSetSec) }
+    var after by remember { mutableStateOf(restAfterSec) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Temps de repos") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                fr.meowsport.ui.components.Stepper(
+                    "Entre les séries", formatRest(between),
+                    onMinus = { between = (between - 15).coerceAtLeast(0) },
+                    onPlus = { between = (between + 15).coerceAtMost(900) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                fr.meowsport.ui.components.Stepper(
+                    "Après l'exercice", formatRest(after),
+                    onMinus = { after = (after - 15).coerceAtLeast(0) },
+                    onPlus = { after = (after + 15).coerceAtMost(900) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Le modèle gardera ces temps si sa mise à jour est activée.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(between, after) }) { Text("Enregistrer") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )
 }
