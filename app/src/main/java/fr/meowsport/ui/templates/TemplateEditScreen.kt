@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,6 +67,7 @@ fun TemplateEditScreen(
     picked: LongArray?,
     onPickedConsumed: () -> Unit,
     onPickExercises: () -> Unit,
+    onPickReplacement: (fr.meowsport.data.Muscle) -> Unit,
     onDone: () -> Unit,
 ) {
     val repo = LocalContext.current.app.repo
@@ -75,9 +77,17 @@ fun TemplateEditScreen(
     val scope = rememberCoroutineScope()
     var confirmLeave by remember { mutableStateOf(false) }
 
+    // The line being replaced, while the picker is open.
+    var replaceTarget by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Long?>(null) }
     LaunchedEffect(picked) {
         if (picked != null) {
-            vm.addExercises(picked.toList())
+            val target = replaceTarget
+            if (target != null) {
+                picked.firstOrNull()?.let { vm.replace(target, it) }
+                replaceTarget = null
+            } else {
+                vm.addExercises(picked.toList())
+            }
             onPickedConsumed()
         }
     }
@@ -129,10 +139,11 @@ fun TemplateEditScreen(
                     onChange = { change -> vm.update(ui.key, change) },
                     onMove = { vm.move(ui.key, it) },
                     onRemove = { vm.remove(ui.key) },
+                    onReplace = { replaceTarget = ui.key; onPickReplacement(ui.data.exercise.muscle) },
                 )
             }
             item {
-                OutlinedButton(onClick = onPickExercises, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                OutlinedButton(onClick = { replaceTarget = null; onPickExercises() }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Ajouter des exercices")
@@ -160,6 +171,7 @@ private fun LineEditor(
     onChange: ((EditLine) -> EditLine) -> Unit,
     onMove: (Int) -> Unit,
     onRemove: () -> Unit,
+    onReplace: () -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(12.dp)) {
@@ -183,6 +195,7 @@ private fun LineEditor(
                         Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Descendre")
                     }
                 }
+                IconButton(onClick = onReplace) { Icon(Icons.Default.SwapHoriz, contentDescription = "Remplacer l'exercice") }
                 IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = "Retirer") }
             }
             Spacer(Modifier.height(12.dp))

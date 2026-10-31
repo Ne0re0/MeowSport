@@ -83,6 +83,21 @@ class TemplateEditViewModel(
         }
     }
 
+    /** Swaps the exercise of a line; sets, reps and rests stay, the weight is cleared. */
+    fun replace(key: Long, exerciseId: Long) {
+        viewModelScope.launch {
+            val ex = repo.exercise(exerciseId) ?: return@launch
+            update(key) {
+                if (it.exercise.id == ex.id) it
+                else it.copy(
+                    exercise = ex,
+                    weight = 0.0,
+                    perHand = ex.equipment == Equipment.DUMBBELL || ex.equipment == Equipment.KETTLEBELL,
+                )
+            }
+        }
+    }
+
     fun update(key: Long, change: (EditLine) -> EditLine) {
         val i = lines.indexOfFirst { it.key == key }
         if (i >= 0) {

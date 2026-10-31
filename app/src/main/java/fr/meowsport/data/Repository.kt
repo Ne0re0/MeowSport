@@ -39,6 +39,12 @@ class Repository(internal val db: AppDatabase) {
         val known = exercises.builtInKeys().toSet()
         val missing = ExerciseCatalog.all.filter { it.key !in known }
         if (missing.isNotEmpty()) exercises.insertAll(missing)
+        // Built-in names can be improved between versions: refresh them.
+        val stored = exercises.all().filter { it.key != null }.associateBy { it.key }
+        for (ex in ExerciseCatalog.all) {
+            val old = stored[ex.key] ?: continue
+            if (old.name != ex.name || old.nameFr != ex.nameFr) exercises.updateNames(ex.key!!, ex.name, ex.nameFr)
+        }
     }
 
     suspend fun createExercise(name: String, muscle: Muscle, equipment: Equipment): Long =
@@ -201,6 +207,28 @@ class Repository(internal val db: AppDatabase) {
         sessions.getExercise(sessionExerciseId)?.let { sessions.deleteExercise(it) }
     }
 
+    /**
+     * Swaps the exercise of a session line, e.g. when a machine is taken.
+     * Sets already done stay as they are; the weight of the other sets is cleared.
+     * The template line follows the swap at the end of the session (if template updates are on).
+     */
+    suspend fun replaceSessionExercise(sessionExerciseId: Long, exerciseId: Long) = db.withTransaction {
+        val item = sessions.getExercise(sessionExerciseId) ?: return@withTransaction
+        if (item.exerciseId == exerciseId) return@withTransaction
+        val ex = exercises.get(exerciseId) ?: return@withTransaction
+        sessions.updateExercise(
+            item.copy(
+                exerciseId = exerciseId,
+                perHand = ex.equipment == Equipment.DUMBBELL || ex.equipment == Equipment.KETTLEBELL,
+                // No targets for a new exercise: no false "progress" at the end.
+                targetSets = 0,
+                targetReps = 0,
+                targetWeight = 0.0,
+            ),
+        )
+        sessions.clearPendingWeights(sessionExerciseId)
+    }
+
     suspend fun addExercisesToSession(
         sessionId: Long,
         exerciseIds: List<Long>,
@@ -272,7 +300,7 @@ class Repository(internal val db: AppDatabase) {
             doneSets += done.size
             val factor = if (ex.item.perHand) 2 else 1
             volume += done.sumOf { it.weight * it.reps * factor }
-            if (done.isEmpty() || ex.item.templateExerciseId == null) continue
+            if (done.isEmpty() || ex.item.templateExerciseId == null || ex.item.targetSets == 0) continue
             progressOf(ex, done)?.let { improvements += it }
         }
 
@@ -299,6 +327,8 @@ class Repository(internal val db: AppDatabase) {
                 if (line != null) {
                     templates.updateLine(
                         line.copy(
+                            exerciseId = ex.item.exerciseId,
+                            perHand = ex.item.perHand,
                             sets = ex.sets.size,
                             reps = best.reps,
                             weight = best.weight,

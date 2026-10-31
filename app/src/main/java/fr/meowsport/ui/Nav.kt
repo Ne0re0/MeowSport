@@ -44,6 +44,7 @@ object Routes {
     fun template(id: Long?) = "template/${id ?: -1}"
     fun session(id: Long) = "session/$id"
     fun history(id: Long) = "history/$id"
+    fun replace(muscle: fr.meowsport.data.Muscle) = "picker?single=true&muscle=${muscle.name}"
 }
 
 /** Key used to hand the picked exercise ids back to the previous screen. */
@@ -125,11 +126,21 @@ fun MeowSportNav(openSessionRequest: Int = 0) {
                     picked = picked,
                     onPickedConsumed = { e.savedStateHandle[PICKED_KEY] = null },
                     onPickExercises = { nav.navigate(Routes.PICKER) },
+                    onPickReplacement = { nav.navigate(Routes.replace(it)) },
                     onDone = { nav.popBackStack() },
                 )
             }
-            composable(Routes.PICKER) {
+            composable(
+                "picker?single={single}&muscle={muscle}",
+                arguments = listOf(
+                    navArgument("single") { type = NavType.BoolType; defaultValue = false },
+                    navArgument("muscle") { type = NavType.StringType; nullable = true; defaultValue = null },
+                ),
+            ) { e ->
+                val muscleName = e.arguments?.getString("muscle")
                 ExercisePickerScreen(
+                    single = e.arguments?.getBoolean("single") ?: false,
+                    initialMuscle = fr.meowsport.data.Muscle.entries.firstOrNull { it.name == muscleName },
                     onBack = { nav.popBackStack() },
                     onPicked = { ids ->
                         nav.previousBackStackEntry?.savedStateHandle?.set(PICKED_KEY, ids.toLongArray())
@@ -148,6 +159,7 @@ fun MeowSportNav(openSessionRequest: Int = 0) {
                     picked = picked,
                     onPickedConsumed = { e.savedStateHandle[PICKED_KEY] = null },
                     onPickExercises = { nav.navigate(Routes.PICKER) },
+                    onPickReplacement = { nav.navigate(Routes.replace(it)) },
                     onBack = { nav.popBackStack() },
                     onFinished = { nav.popBackStack(Routes.HOME, inclusive = false) },
                 )

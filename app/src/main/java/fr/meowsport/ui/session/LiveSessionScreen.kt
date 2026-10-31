@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -99,6 +100,7 @@ fun LiveSessionScreen(
     picked: LongArray?,
     onPickedConsumed: () -> Unit,
     onPickExercises: () -> Unit,
+    onPickReplacement: (fr.meowsport.data.Muscle) -> Unit,
     onBack: () -> Unit,
     onFinished: () -> Unit,
 ) {
@@ -135,12 +137,21 @@ fun LiveSessionScreen(
         if (endedAt != null && vm.result == null && !vm.finishing) onFinished()
     }
 
+    // The session exercise being replaced, while the picker is open.
+    var replaceTarget by rememberSaveable { mutableStateOf<Long?>(null) }
     LaunchedEffect(picked) {
         if (picked != null) {
-            vm.addExercises(picked.toList())
+            val target = replaceTarget
+            if (target != null) {
+                picked.firstOrNull()?.let { vm.replaceExercise(target, it) }
+                replaceTarget = null
+            } else {
+                vm.addExercises(picked.toList())
+            }
             onPickedConsumed()
         }
     }
+    val pickToAdd = { replaceTarget = null; onPickExercises() }
 
     val data = full
     val session = data?.session
@@ -171,7 +182,7 @@ fun LiveSessionScreen(
                             DropdownMenuItem(
                                 text = { Text("Ajouter un exercice") },
                                 leadingIcon = { Icon(Icons.Default.Add, null) },
-                                onClick = { menu = false; onPickExercises() },
+                                onClick = { menu = false; pickToAdd() },
                             )
                             DropdownMenuItem(
                                 text = { Text("Abandonner la séance") },
@@ -210,7 +221,7 @@ fun LiveSessionScreen(
                 }
                 if (exercises.isEmpty()) {
                     item {
-                        OutlinedButton(onClick = onPickExercises, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        OutlinedButton(onClick = pickToAdd, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                             Icon(Icons.Default.Add, null)
                             Spacer(Modifier.width(8.dp))
                             Text("Ajouter un exercice")
@@ -225,6 +236,7 @@ fun LiveSessionScreen(
                         onAddSet = { vm.addSet(ex.item.id) },
                         onRemoveSet = { vm.removeLastSet(ex.item.id) },
                         onRemoveExercise = { vm.removeExercise(ex.item.id) },
+                        onReplace = { replaceTarget = ex.item.id; onPickReplacement(ex.exercise.muscle) },
                         onNote = { vm.exerciseNote(ex.item.id, it) },
                     )
                 }
@@ -393,6 +405,7 @@ private fun ExerciseBlock(
     onAddSet: () -> Unit,
     onRemoveSet: () -> Unit,
     onRemoveExercise: () -> Unit,
+    onReplace: () -> Unit,
     onNote: (String) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -446,6 +459,11 @@ private fun ExerciseBlock(
                             text = { Text("Note sur l'exercice") },
                             leadingIcon = { Icon(Icons.Default.Edit, null) },
                             onClick = { menu = false; showNote = true },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Remplacer l'exercice") },
+                            leadingIcon = { Icon(Icons.Default.SwapHoriz, null) },
+                            onClick = { menu = false; onReplace() },
                         )
                         DropdownMenuItem(
                             text = { Text("Retirer l'exercice") },

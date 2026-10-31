@@ -23,6 +23,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercises WHERE `key` IN (:keys)")
     suspend fun byKeys(keys: List<String>): List<Exercise>
 
+    @Query("UPDATE exercises SET name = :name, nameFr = :nameFr WHERE `key` = :key")
+    suspend fun updateNames(key: String, name: String, nameFr: String)
+
     @Query("SELECT `key` FROM exercises WHERE `key` IS NOT NULL")
     suspend fun builtInKeys(): List<String>
 
@@ -127,6 +130,9 @@ interface SessionDao {
 
     @Update
     suspend fun updateExercise(e: SessionExercise)
+
+    @Query("UPDATE session_sets SET weight = 0 WHERE sessionExerciseId = :id AND done = 0")
+    suspend fun clearPendingWeights(id: Long)
 
     @Query("SELECT * FROM session_exercises WHERE id = :id")
     suspend fun getExercise(id: Long): SessionExercise?

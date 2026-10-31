@@ -71,11 +71,17 @@ private fun Exercise.matches(q: String): Boolean {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExercisePickerScreen(onBack: () -> Unit, onPicked: (List<Long>) -> Unit) {
+fun ExercisePickerScreen(
+    onBack: () -> Unit,
+    onPicked: (List<Long>) -> Unit,
+    /** Pick one exercise with a single tap, to replace another one. */
+    single: Boolean = false,
+    initialMuscle: Muscle? = null,
+) {
     val repo = LocalContext.current.app.repo
     val all by remember { repo.observeExercises() }.collectAsStateWithLifecycle(initialValue = emptyList())
     var query by rememberSaveable { mutableStateOf("") }
-    var muscle by rememberSaveable { mutableStateOf<Muscle?>(null) }
+    var muscle by rememberSaveable { mutableStateOf(initialMuscle) }
     val selected = remember { mutableStateListOf<Long>() }
     var creating by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -87,7 +93,7 @@ fun ExercisePickerScreen(onBack: () -> Unit, onPicked: (List<Long>) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Choisir des exercices") },
+                title = { Text(if (single) "Remplacer par…" else "Choisir des exercices") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
                 },
@@ -99,7 +105,7 @@ fun ExercisePickerScreen(onBack: () -> Unit, onPicked: (List<Long>) -> Unit) {
             )
         },
         bottomBar = {
-            if (selected.isNotEmpty()) {
+            if (!single && selected.isNotEmpty()) {
                 Surface(tonalElevation = 3.dp) {
                     Button(
                         onClick = { onPicked(selected.toList()) },
@@ -147,7 +153,10 @@ fun ExercisePickerScreen(onBack: () -> Unit, onPicked: (List<Long>) -> Unit) {
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable { if (isSelected) selected.remove(ex.id) else selected.add(ex.id) }
+                            .clickable {
+                                if (single) onPicked(listOf(ex.id))
+                                else if (isSelected) selected.remove(ex.id) else selected.add(ex.id)
+                            }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -164,7 +173,9 @@ fun ExercisePickerScreen(onBack: () -> Unit, onPicked: (List<Long>) -> Unit) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Checkbox(checked = isSelected, onCheckedChange = { if (it) selected.add(ex.id) else selected.remove(ex.id) })
+                        if (!single) {
+                            Checkbox(checked = isSelected, onCheckedChange = { if (it) selected.add(ex.id) else selected.remove(ex.id) })
+                        }
                     }
                     HorizontalDivider(Modifier.padding(start = 84.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                 }
@@ -180,6 +191,10 @@ fun ExercisePickerScreen(onBack: () -> Unit, onPicked: (List<Long>) -> Unit) {
                 creating = false
                 scope.launch {
                     val id = repo.createExercise(name, m, eq)
+                    if (single) {
+                        onPicked(listOf(id))
+                        return@launch
+                    }
                     selected.add(id)
                     query = ""
                     muscle = null

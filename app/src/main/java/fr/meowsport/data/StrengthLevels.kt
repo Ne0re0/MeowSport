@@ -86,7 +86,7 @@ object StrengthLevels {
         "wrist_curl" to w(0.6), "reverse_curl" to w(0.45),
         // Legs
         "back_squat" to w(1.5), "front_squat" to w(1.2), "smith_squat" to w(1.5), "goblet_squat" to w(0.6),
-        "hack_squat" to w(1.6), "pendulum_squat" to w(1.5), "leg_press" to w(2.6), "leg_extension" to w(1.0),
+        "hack_squat" to w(1.6), "pendulum_squat" to w(1.5), "leg_press" to w(2.6), "seated_leg_press" to w(1.8), "vertical_leg_press" to w(2.0), "single_leg_press" to w(1.2), "leg_extension" to w(1.0),
         "bulgarian_split_squat" to w(0.35), "walking_lunge" to w(0.35), "reverse_lunge" to w(0.35),
         "belt_squat" to w(1.5),
         "romanian_deadlift" to w(1.3), "db_romanian_deadlift" to w(0.5), "stiff_leg_deadlift" to w(1.2),
