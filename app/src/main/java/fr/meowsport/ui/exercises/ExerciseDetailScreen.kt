@@ -163,7 +163,7 @@ fun ExerciseDetailScreen(exerciseId: Long, onBack: () -> Unit, onOpenSession: (L
                     }
                 }
                 item { Text("Historique", style = MaterialTheme.typography.titleMedium) }
-                items(points.reversed(), key = { it.sessionId }) { p ->
+                items(points.reversed()) { p ->
                     Card(
                         Modifier.fillMaxWidth().clickable { onOpenSession(p.sessionId) },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
