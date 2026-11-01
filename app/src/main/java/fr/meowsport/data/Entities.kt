@@ -59,6 +59,8 @@ data class TemplateExercise(
     /** Rest after the last set, before the next exercise, in seconds. */
     val restAfterSec: Int = 120,
     val note: String = "",
+    /** Done as a superset with the next exercise of the template. */
+    @ColumnInfo(defaultValue = "0") val supersetNext: Boolean = false,
 )
 
 @Entity(
@@ -113,6 +115,8 @@ data class SessionExercise(
     val targetReps: Int = 0,
     val targetWeight: Double = 0.0,
     val note: String = "",
+    /** Done as a superset with the next exercise of the session. */
+    @ColumnInfo(defaultValue = "0") val supersetNext: Boolean = false,
 )
 
 @Entity(

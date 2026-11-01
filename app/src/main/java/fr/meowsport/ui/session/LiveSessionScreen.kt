@@ -24,6 +24,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,6 +37,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Timer
@@ -233,9 +236,16 @@ fun LiveSessionScreen(
                         }
                     }
                 }
-                items(exercises, key = { it.item.id }) { ex ->
+                itemsIndexed(exercises, key = { _, it -> it.item.id }) { index, ex ->
+                    val linkedPrev = index > 0 && exercises[index - 1].item.supersetNext
+                    val linkedNext = ex.item.supersetNext && index < exercises.lastIndex
+                    Column {
+                    if (linkedNext && !linkedPrev) SupersetLabel()
                     ExerciseBlock(
                         ex = ex,
+                        inSuperset = linkedPrev || linkedNext,
+                        linkedNext = linkedNext,
+                        onSuperset = { vm.setSuperset(ex.item.id, it) },
                         onToggle = { vm.toggleSet(it.id) },
                         onValues = { set, w, r -> vm.updateSet(set.id, w, r) },
                         onAddSet = { vm.addSet(ex.item.id) },
@@ -248,6 +258,7 @@ fun LiveSessionScreen(
                         onRest = { set, after -> vm.setRest(ex.item.id, set, after) },
                         onNote = { vm.exerciseNote(ex.exercise.id, it) },
                     )
+                    }
                 }
                 item {
                     var note by rememberSaveable(session.id) { mutableStateOf(session.note) }
@@ -415,6 +426,9 @@ private fun ExerciseBlock(
     onRemoveSet: () -> Unit,
     onRemoveExercise: () -> Unit,
     onReplace: () -> Unit,
+    inSuperset: Boolean,
+    linkedNext: Boolean,
+    onSuperset: (Boolean) -> Unit,
     isFirst: Boolean,
     isLast: Boolean,
     onMove: (Int) -> Unit,
@@ -446,6 +460,7 @@ private fun ExerciseBlock(
         colors = CardDefaults.cardColors(
             containerColor = if (allDone) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surfaceContainer,
         ),
+        border = if (inSuperset) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -500,6 +515,12 @@ private fun ExerciseBlock(
                             leadingIcon = { Icon(Icons.Default.KeyboardArrowDown, null) },
                             enabled = !isLast,
                             onClick = { menu = false; onMove(1) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (linkedNext) "Délier du suivant" else "Superset avec le suivant") },
+                            leadingIcon = { Icon(if (linkedNext) Icons.Default.LinkOff else Icons.Default.Link, null) },
+                            enabled = linkedNext || !isLast,
+                            onClick = { menu = false; onSuperset(!linkedNext) },
                         )
                         DropdownMenuItem(
                             text = { Text("Temps de repos") },
@@ -726,4 +747,18 @@ private fun NoteDialog(initial: String, onDismiss: () -> Unit, onSave: (String) 
         confirmButton = { TextButton(onClick = { onSave(text) }) { Text("Enregistrer") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )
+}
+
+/** Shown above the first exercise of a superset. */
+@Composable
+private fun SupersetLabel() {
+    Row(Modifier.padding(start = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "Superset : enchaîne les exercices, repos après le dernier",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
 }

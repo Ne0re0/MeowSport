@@ -55,6 +55,8 @@ class LiveSessionViewModel(
         viewModelScope.launch { repo.moveSessionExercise(sessionId, sessionExerciseId, delta) }
     fun setRest(sessionExerciseId: Long, restSetSec: Int, restAfterSec: Int) =
         viewModelScope.launch { repo.setSessionExerciseRest(sessionExerciseId, restSetSec, restAfterSec) }
+    fun setSuperset(sessionExerciseId: Long, linked: Boolean) =
+        viewModelScope.launch { repo.setSessionSuperset(sessionExerciseId, linked) }
     fun removeExercise(sessionExerciseId: Long) = viewModelScope.launch { repo.removeSessionExercise(sessionExerciseId) }
     fun replaceExercise(sessionExerciseId: Long, exerciseId: Long) =
         viewModelScope.launch { repo.replaceSessionExercise(sessionExerciseId, exerciseId) }

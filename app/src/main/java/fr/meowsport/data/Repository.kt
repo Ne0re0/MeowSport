@@ -14,6 +14,7 @@ data class EditLine(
     val restSetSec: Int,
     val restAfterSec: Int,
     val note: String,
+    val supersetNext: Boolean = false,
 )
 
 data class FinishResult(
@@ -87,6 +88,7 @@ class Repository(internal val db: AppDatabase) {
                 restSetSec = l.restSetSec,
                 restAfterSec = l.restAfterSec,
                 note = l.note,
+                supersetNext = l.supersetNext,
             )
             if (l.lineId == null) templates.insertLine(row) else templates.updateLine(row)
         }
@@ -150,6 +152,7 @@ class Repository(internal val db: AppDatabase) {
                     targetReps = l.line.reps,
                     targetWeight = l.line.weight,
                     note = l.line.note,
+                    supersetNext = l.line.supersetNext,
                 ),
             )
             sessions.insertSets(
@@ -170,11 +173,25 @@ class Repository(internal val db: AppDatabase) {
         sessions.updateSet(set.copy(done = nowDone, doneAt = if (nowDone) System.currentTimeMillis() else null))
         if (!nowDone) return@withTransaction null
         val se = sessions.getExercise(set.sessionExerciseId) ?: return@withTransaction null
+        val full = sessions.getFull(se.sessionId) ?: return@withTransaction null
+        val group = supersetGroup(full.sorted, se.id)
+        if (group.size > 1) {
+            fun left(e: SessionExerciseFull) = e.sets.count { !it.done && it.id != set.id }
+            val index = group.indexOfFirst { it.item.id == se.id }
+            return@withTransaction when {
+                // Go straight to the next exercise of the superset, no rest.
+                group.drop(index + 1).any { left(it) > 0 } -> 0
+                // End of a round: rest, then start the next round.
+                group.any { left(it) > 0 } -> se.restSetSec
+                // Superset finished.
+                full.exercises.any { ex -> ex.sets.any { !it.done && it.id != set.id } } -> group.last().item.restAfterSec
+                else -> null
+            }
+        }
         val remaining = sessions.setsOf(se.id).count { !it.done && it.id != set.id }
         if (remaining > 0) {
             se.restSetSec
         } else {
-            val full = sessions.getFull(se.sessionId) ?: return@withTransaction null
             val anyLeft = full.exercises.any { ex -> ex.sets.any { !it.done && it.id != set.id } }
             if (anyLeft) se.restAfterSec else null
         }
@@ -209,8 +226,23 @@ class Repository(internal val db: AppDatabase) {
         val i = list.indexOfFirst { it.id == sessionExerciseId }
         val j = i + delta
         if (i < 0 || j !in list.indices) return@withTransaction
-        list.add(j, list.removeAt(i))
-        list.forEachIndexed { index, e -> if (e.position != index) sessions.updateExercise(e.copy(position = index)) }
+        // Moving an exercise breaks its superset links.
+        if (i > 0) list[i - 1] = list[i - 1].copy(supersetNext = false)
+        list[i] = list[i].copy(supersetNext = false)
+        val moved = list.removeAt(i)
+        list.add(j, moved)
+        if (j > 0) list[j - 1] = list[j - 1].copy(supersetNext = false)
+        val stored = sessions.getFull(sessionId)?.exercises?.associate { it.item.id to it.item }.orEmpty()
+        list.forEachIndexed { index, e ->
+            val updated = e.copy(position = index)
+            if (stored[e.id] != updated) sessions.updateExercise(updated)
+        }
+    }
+
+    /** Links (or unlinks) a session exercise with the next one as a superset. */
+    suspend fun setSessionSuperset(sessionExerciseId: Long, linked: Boolean) {
+        val e = sessions.getExercise(sessionExerciseId) ?: return
+        sessions.updateExercise(e.copy(supersetNext = linked))
     }
 
     suspend fun setSessionExerciseRest(sessionExerciseId: Long, restSetSec: Int, restAfterSec: Int) {
@@ -218,8 +250,15 @@ class Repository(internal val db: AppDatabase) {
         sessions.updateExercise(e.copy(restSetSec = restSetSec, restAfterSec = restAfterSec))
     }
 
-    suspend fun removeSessionExercise(sessionExerciseId: Long) {
-        sessions.getExercise(sessionExerciseId)?.let { sessions.deleteExercise(it) }
+    suspend fun removeSessionExercise(sessionExerciseId: Long) = db.withTransaction {
+        val e = sessions.getExercise(sessionExerciseId) ?: return@withTransaction
+        // The exercise before it no longer has a superset partner.
+        val sorted = sessions.getFull(e.sessionId)?.sorted.orEmpty()
+        val i = sorted.indexOfFirst { it.item.id == e.id }
+        if (i > 0 && sorted[i - 1].item.supersetNext && !e.supersetNext) {
+            sessions.updateExercise(sorted[i - 1].item.copy(supersetNext = false))
+        }
+        sessions.deleteExercise(e)
     }
 
     /**
@@ -350,6 +389,7 @@ class Repository(internal val db: AppDatabase) {
                             perHand = ex.item.perHand,
                             restSetSec = ex.item.restSetSec,
                             restAfterSec = ex.item.restAfterSec,
+                            supersetNext = ex.item.supersetNext,
                             sets = ex.sets.size,
                             reps = best.reps,
                             weight = best.weight,
@@ -369,6 +409,7 @@ class Repository(internal val db: AppDatabase) {
                             restSetSec = ex.item.restSetSec,
                             restAfterSec = ex.item.restAfterSec,
                             note = ex.item.note,
+                            supersetNext = ex.item.supersetNext,
                         ),
                     )
                 }
@@ -409,6 +450,17 @@ class Repository(internal val db: AppDatabase) {
                 "$name : ${ts * tr} → ${done.sumOf { it.reps }} reps au total"
             else -> null
         }
+    }
+
+    /** The exercises done as one superset with the given one (just itself when not linked). */
+    private fun supersetGroup(sorted: List<SessionExerciseFull>, sessionExerciseId: Long): List<SessionExerciseFull> {
+        val i = sorted.indexOfFirst { it.item.id == sessionExerciseId }
+        if (i < 0) return emptyList()
+        var start = i
+        while (start > 0 && sorted[start - 1].item.supersetNext) start--
+        var end = i
+        while (end < sorted.lastIndex && sorted[end].item.supersetNext) end++
+        return sorted.subList(start, end + 1)
     }
 }
 

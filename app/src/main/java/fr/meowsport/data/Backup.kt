@@ -40,6 +40,7 @@ class Backup(private val repo: Repository) {
                                     .put("restSetSec", l.line.restSetSec)
                                     .put("restAfterSec", l.line.restAfterSec)
                                     .put("note", l.line.note)
+                                    .put("supersetNext", l.line.supersetNext)
                             },
                         ),
                     ),
@@ -73,6 +74,7 @@ class Backup(private val repo: Repository) {
                                     .put("targetReps", e.item.targetReps)
                                     .put("targetWeight", e.item.targetWeight)
                                     .put("note", e.item.note)
+                                    .put("supersetNext", e.item.supersetNext)
                                     .put(
                                         "sets",
                                         JSONArray(
@@ -161,6 +163,7 @@ class Backup(private val repo: Repository) {
                             restSetSec = l.optInt("restSetSec", 90),
                             restAfterSec = l.optInt("restAfterSec", 120),
                             note = l.optString("note"),
+                            supersetNext = l.optBoolean("supersetNext", false),
                         ),
                     )
                 }
@@ -207,6 +210,7 @@ class Backup(private val repo: Repository) {
                             targetReps = e.optInt("targetReps", 0),
                             targetWeight = e.optDouble("targetWeight", 0.0).takeIf { !it.isNaN() } ?: 0.0,
                             note = e.optString("note"),
+                            supersetNext = e.optBoolean("supersetNext", false),
                         ),
                     )
                     val sets = e.optJSONArray("sets") ?: JSONArray()

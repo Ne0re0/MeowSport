@@ -46,6 +46,7 @@ class TemplateEditViewModel(
                                 restSetSec = l.line.restSetSec,
                                 restAfterSec = l.line.restAfterSec,
                                 note = l.line.note,
+                                supersetNext = l.line.supersetNext,
                             ),
                         )
                     }
@@ -107,16 +108,31 @@ class TemplateEditViewModel(
     }
 
     fun remove(key: Long) {
-        lines.removeAll { it.key == key }
+        val i = lines.indexOfFirst { it.key == key }
+        if (i < 0) return
+        // The exercise before it no longer has a superset partner.
+        if (i > 0 && !lines[i].data.supersetNext) lines[i - 1] = lines[i - 1].let { it.copy(data = it.data.copy(supersetNext = false)) }
+        lines.removeAt(i)
         dirty = true
+    }
+
+    /** Links (or unlinks) a line with the next one as a superset. */
+    fun toggleSuperset(key: Long) = update(key) { it.copy(supersetNext = !it.supersetNext) }
+
+    private fun unlink(index: Int) {
+        if (index in lines.indices) lines[index] = lines[index].let { it.copy(data = it.data.copy(supersetNext = false)) }
     }
 
     fun move(key: Long, delta: Int) {
         val i = lines.indexOfFirst { it.key == key }
         val j = i + delta
         if (i < 0 || j !in lines.indices) return
+        // Moving an exercise breaks its superset links.
+        unlink(i - 1)
+        unlink(i)
         val item = lines.removeAt(i)
         lines.add(j, item)
+        unlink(j - 1)
         dirty = true
     }
 

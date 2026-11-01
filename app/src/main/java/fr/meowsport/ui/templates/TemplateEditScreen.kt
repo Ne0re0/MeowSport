@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -22,6 +23,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -131,9 +134,13 @@ fun TemplateEditScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            items(vm.lines, key = { it.key }) { ui ->
+            itemsIndexed(vm.lines, key = { _, it -> it.key }) { index, ui ->
+                val linkedPrev = index > 0 && vm.lines[index - 1].data.supersetNext
+                val isLastLine = index == vm.lines.lastIndex
+                Column {
                 LineEditor(
                     line = ui.data,
+                    inSuperset = linkedPrev || (ui.data.supersetNext && !isLastLine),
                     isFirst = vm.lines.firstOrNull()?.key == ui.key,
                     isLast = vm.lines.lastOrNull()?.key == ui.key,
                     onChange = { change -> vm.update(ui.key, change) },
@@ -141,6 +148,18 @@ fun TemplateEditScreen(
                     onRemove = { vm.remove(ui.key) },
                     onReplace = { replaceTarget = ui.key; onPickReplacement(ui.data.exercise.muscle) },
                 )
+                if (!isLastLine) {
+                    val linked = ui.data.supersetNext
+                    TextButton(
+                        onClick = { vm.toggleSuperset(ui.key) },
+                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp),
+                    ) {
+                        Icon(if (linked) Icons.Default.Link else Icons.Default.LinkOff, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (linked) "Superset avec le suivant · délier" else "Lier en superset avec le suivant")
+                    }
+                }
+                }
             }
             item {
                 OutlinedButton(onClick = { replaceTarget = null; onPickExercises() }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
@@ -166,6 +185,7 @@ fun TemplateEditScreen(
 @Composable
 private fun LineEditor(
     line: EditLine,
+    inSuperset: Boolean,
     isFirst: Boolean,
     isLast: Boolean,
     onChange: ((EditLine) -> EditLine) -> Unit,
@@ -173,7 +193,10 @@ private fun LineEditor(
     onRemove: () -> Unit,
     onReplace: () -> Unit,
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = if (inSuperset) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ExerciseCover(line.exercise, Modifier.size(64.dp))
