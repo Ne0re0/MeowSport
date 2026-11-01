@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
@@ -38,6 +39,8 @@ import fr.meowsport.ui.templates.TemplatesScreen
 object Routes {
     const val HOME = "home"
     const val PROFILE = "profile"
+    const val EXERCISES = "exercises"
+    fun exercise(id: Long) = "exercise/$id"
     const val PICKER = "picker"
     const val EXAMPLES = "examples"
     const val SETTINGS = "settings"
@@ -66,7 +69,7 @@ fun MeowSportNav(openSessionRequest: Int = 0) {
     }
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
-    val showBar = route == Routes.HOME || route == Routes.PROFILE
+    val showBar = route == Routes.HOME || route == Routes.EXERCISES || route == Routes.PROFILE
 
     Scaffold(
         bottomBar = {
@@ -77,6 +80,12 @@ fun MeowSportNav(openSessionRequest: Int = 0) {
                         onClick = { nav.switchTab(Routes.HOME) },
                         icon = { Icon(Icons.Default.FitnessCenter, contentDescription = null) },
                         label = { Text("Séances") },
+                    )
+                    NavigationBarItem(
+                        selected = route == Routes.EXERCISES,
+                        onClick = { nav.switchTab(Routes.EXERCISES) },
+                        icon = { Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null) },
+                        label = { Text("Exercices") },
                     )
                     NavigationBarItem(
                         selected = route == Routes.PROFILE,
@@ -100,6 +109,19 @@ fun MeowSportNav(openSessionRequest: Int = 0) {
                     onEdit = { nav.navigate(Routes.template(it)) },
                     onOpenSession = { nav.navigate(Routes.session(it)) },
                     onExamples = { nav.navigate(Routes.EXAMPLES) },
+                )
+            }
+            composable(Routes.EXERCISES) {
+                fr.meowsport.ui.exercises.ExercisesScreen(onOpen = { nav.navigate(Routes.exercise(it)) })
+            }
+            composable(
+                "exercise/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.LongType }),
+            ) { e ->
+                fr.meowsport.ui.exercises.ExerciseDetailScreen(
+                    exerciseId = e.arguments!!.getLong("id"),
+                    onBack = { nav.popBackStack() },
+                    onOpenSession = { nav.navigate(Routes.history(it)) },
                 )
             }
             composable(Routes.EXAMPLES) {

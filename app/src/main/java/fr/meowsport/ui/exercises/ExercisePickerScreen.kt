@@ -62,7 +62,7 @@ import java.text.Normalizer
 private fun String.norm(): String =
     Normalizer.normalize(lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
 
-private fun Exercise.matches(q: String): Boolean {
+internal fun Exercise.matches(q: String): Boolean {
     if (q.isBlank()) return true
     val words = q.norm().split(' ').filter { it.isNotBlank() }
     val hay = "$name $nameFr ${muscle.label} ${equipment.label}".norm()

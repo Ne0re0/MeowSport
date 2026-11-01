@@ -99,7 +99,7 @@ private data class WeekStat(val start: LocalDate, val count: Int, val minutes: L
 
 private fun Session.durationMs() = (endedAt ?: startedAt) - startedAt
 
-private fun weekStart(ms: Long, zone: ZoneId, monday: Boolean): LocalDate =
+internal fun weekStart(ms: Long, zone: ZoneId, monday: Boolean): LocalDate =
     Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
         .with(TemporalAdjusters.previousOrSame(if (monday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY))
 
@@ -132,6 +132,9 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
         value = if (bw == null) emptyMap() else withContext(Dispatchers.Default) {
             StrengthLevels.compute(app.repo.finishedSessionsFull(), bw, profile.female)
         }
+    }
+    val allSessions by produceState(emptyList<fr.meowsport.data.SessionFull>(), history) {
+        value = app.repo.finishedSessionsFull()
     }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -285,6 +288,7 @@ fun ProfileScreen(onOpenSession: (Long) -> Unit, onResumeSession: (Long) -> Unit
                     onSetBodyWeight = { editing = true },
                 )
             }
+            item { MuscleCountCard(allSessions, monday) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SmallStat("${history.size}", "séances au total", Modifier.weight(1f))
