@@ -39,7 +39,7 @@ import fr.meowsport.ui.components.BodyMap
 import java.time.LocalDate
 import java.time.ZoneId
 
-enum class CountPeriod(val label: String) { ALL("Depuis le début"), MONTH("Ce mois-ci"), WEEK("Cette semaine") }
+enum class CountPeriod(val label: String) { ALL("Depuis le début"), MONTH("30 derniers jours"), WEEK("7 derniers jours") }
 
 /** Number of exercises done per muscle group (main muscle, at least one set checked). */
 fun countByMuscle(sessions: List<SessionFull>, period: CountPeriod, weekStartsMonday: Boolean): Map<Muscle, Int> {
@@ -47,8 +47,8 @@ fun countByMuscle(sessions: List<SessionFull>, period: CountPeriod, weekStartsMo
     val now = System.currentTimeMillis()
     val from: Long = when (period) {
         CountPeriod.ALL -> Long.MIN_VALUE
-        CountPeriod.MONTH -> LocalDate.now(zone).withDayOfMonth(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        CountPeriod.WEEK -> weekStart(now, zone, weekStartsMonday).atStartOfDay(zone).toInstant().toEpochMilli()
+        CountPeriod.MONTH -> now - 30L * DAY_MS
+        CountPeriod.WEEK -> now - 7L * DAY_MS
     }
     return sessions
         .filter { it.session.startedAt >= from }
@@ -56,6 +56,8 @@ fun countByMuscle(sessions: List<SessionFull>, period: CountPeriod, weekStartsMo
         .groupingBy { it }
         .eachCount()
 }
+
+private const val DAY_MS = 24L * 60 * 60 * 1000
 
 private val low = Color(0xFFE4D8FF)
 private val high = Color(0xFF4A1FA8)
