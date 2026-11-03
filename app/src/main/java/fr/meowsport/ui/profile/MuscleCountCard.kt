@@ -39,7 +39,8 @@ import fr.meowsport.ui.components.BodyMap
 import java.time.LocalDate
 import java.time.ZoneId
 
-enum class CountPeriod(val label: String) { ALL("Depuis le début"), MONTH("30 derniers jours"), WEEK("7 derniers jours") }
+/** Listed in display order; the first one is the default. Short labels so the three fit on one line. */
+enum class CountPeriod(val label: String) { WEEK("7 jours"), MONTH("30 jours"), ALL("Tout") }
 
 /** Number of exercises done per muscle group (main muscle, at least one set checked). */
 fun countByMuscle(sessions: List<SessionFull>, period: CountPeriod, weekStartsMonday: Boolean): Map<Muscle, Int> {
@@ -67,7 +68,7 @@ private fun countColor(count: Int, max: Int): Color =
 
 @Composable
 fun MuscleCountCard(sessions: List<SessionFull>, weekStartsMonday: Boolean) {
-    var period by rememberSaveable { mutableStateOf(CountPeriod.ALL) }
+    var period by rememberSaveable { mutableStateOf(CountPeriod.WEEK) }
     var showList by remember { mutableStateOf(false) }
     val counts = remember(sessions, period, weekStartsMonday) { countByMuscle(sessions, period, weekStartsMonday) }
     val max = counts.values.maxOrNull() ?: 0
@@ -76,9 +77,14 @@ fun MuscleCountCard(sessions: List<SessionFull>, weekStartsMonday: Boolean) {
         Column(Modifier.padding(16.dp)) {
             Text("Exercices par muscle", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 CountPeriod.entries.forEach { p ->
-                    FilterChip(selected = period == p, onClick = { period = p }, label = { Text(p.label) })
+                    FilterChip(
+                        selected = period == p,
+                        onClick = { period = p },
+                        label = { Text(p.label, maxLines = 1, softWrap = false) },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
             Spacer(Modifier.height(8.dp))
