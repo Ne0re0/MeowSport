@@ -138,6 +138,7 @@ class Repository(internal val db: AppDatabase) {
                 previousNote = full?.template?.nextNote.orEmpty(),
             ),
         )
+        val last = lastSetsByExercise()
         full?.sorted?.forEachIndexed { index, l ->
             val seId = sessions.insertExercise(
                 SessionExercise(
@@ -157,7 +158,14 @@ class Repository(internal val db: AppDatabase) {
             )
             sessions.insertSets(
                 (0 until l.line.sets.coerceAtLeast(1)).map {
-                    SessionSet(sessionExerciseId = seId, setIndex = it, weight = l.line.weight, reps = l.line.reps)
+                    // Reps of the same set last time, to beat them; the template weight unless it has none.
+                    val prev = last[l.exercise.id]?.let { p -> p.getOrNull(it) ?: p.last() }
+                    SessionSet(
+                        sessionExerciseId = seId,
+                        setIndex = it,
+                        weight = if (l.line.weight > 0) l.line.weight else prev?.weight ?: 0.0,
+                        reps = prev?.reps ?: l.line.reps,
+                    )
                 },
             )
         }
@@ -281,6 +289,26 @@ class Repository(internal val db: AppDatabase) {
             ),
         )
         sessions.clearPendingWeights(sessionExerciseId)
+        // Start from what was done last time on the new exercise, if anything.
+        val prev = lastSetsByExercise()[exerciseId] ?: return@withTransaction
+        sessions.setsOf(sessionExerciseId).filter { !it.done }.forEach { set ->
+            val p = prev.getOrNull(set.setIndex) ?: prev.last()
+            sessions.updateSet(set.copy(weight = p.weight, reps = p.reps))
+        }
+    }
+
+    /** For each exercise, the checked sets of the last finished session where it was done. */
+    suspend fun lastSetsByExercise(): Map<Long, List<SessionSet>> {
+        val map = mutableMapOf<Long, List<SessionSet>>()
+        sessions.allFinishedFull().sortedByDescending { it.session.startedAt }.forEach { s ->
+            s.sorted.forEach { e ->
+                if (e.exercise.id !in map) {
+                    val done = e.sortedSets.filter { it.done }
+                    if (done.isNotEmpty()) map[e.exercise.id] = done
+                }
+            }
+        }
+        return map
     }
 
     suspend fun addExercisesToSession(
@@ -293,6 +321,7 @@ class Repository(internal val db: AppDatabase) {
     ) = db.withTransaction {
         val full = sessions.getFull(sessionId) ?: return@withTransaction
         var position = (full.exercises.maxOfOrNull { it.item.position } ?: -1) + 1
+        val last = lastSetsByExercise()
         for (id in exerciseIds) {
             val ex = exercises.get(id) ?: continue
             val seId = sessions.insertExercise(
@@ -305,7 +334,13 @@ class Repository(internal val db: AppDatabase) {
                     restAfterSec = restAfterSec,
                 ),
             )
-            sessions.insertSets((0 until sets.coerceAtLeast(1)).map { SessionSet(sessionExerciseId = seId, setIndex = it, weight = 0.0, reps = reps) })
+            val prev = last[id]
+            sessions.insertSets(
+                (0 until (prev?.size ?: sets).coerceAtLeast(1)).map {
+                    val p = prev?.let { list -> list.getOrNull(it) ?: list.last() }
+                    SessionSet(sessionExerciseId = seId, setIndex = it, weight = p?.weight ?: 0.0, reps = p?.reps ?: reps)
+                },
+            )
         }
     }
 

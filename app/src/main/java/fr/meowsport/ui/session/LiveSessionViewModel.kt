@@ -31,15 +31,7 @@ class LiveSessionViewModel(
 
     init {
         viewModelScope.launch {
-            val map = mutableMapOf<Long, List<fr.meowsport.data.SessionSet>>()
-            repo.finishedSessionsFull().sortedByDescending { it.session.startedAt }.forEach { s ->
-                s.sorted.forEach { e ->
-                    if (e.exercise.id !in map) {
-                        val done = e.sortedSets.filter { it.done }
-                        if (done.isNotEmpty()) map[e.exercise.id] = done
-                    }
-                }
-            }
+            val map = repo.lastSetsByExercise()
             lastTime = map
         }
     }
