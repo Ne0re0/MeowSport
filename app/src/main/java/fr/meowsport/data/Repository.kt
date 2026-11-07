@@ -338,7 +338,31 @@ class Repository(internal val db: AppDatabase) {
     }
 
     /** Ends the session, updates its template with what was done and lists the progress made. */
-    suspend fun finishSession(sessionId: Long, updateTemplate: Boolean = true): FinishResult = db.withTransaction {
+    /**
+     * True when the session no longer has the shape of its template: exercises added, removed,
+     * replaced or moved, or rests and superset links changed.
+     */
+    suspend fun sessionDiffersFromTemplate(sessionId: Long): Boolean {
+        val full = sessions.getFull(sessionId) ?: return false
+        val templateId = full.session.templateId ?: return false
+        val lines = templates.lines(templateId).sortedBy { it.position }
+        val exs = full.sorted.map { it.item }
+        if (lines.size != exs.size) return true
+        return lines.zip(exs).any { (l, e) ->
+            e.templateExerciseId != l.id || e.exerciseId != l.exerciseId || e.restSetSec != l.restSetSec ||
+                e.restAfterSec != l.restAfterSec || e.supersetNext != l.supersetNext
+        }
+    }
+
+    /**
+     * Ends the session. [updateTemplate] keeps the progress (weights, reps) in the template;
+     * [syncStructure] also gives the template the session's exercises, order, rests and supersets.
+     */
+    suspend fun finishSession(
+        sessionId: Long,
+        updateTemplate: Boolean = true,
+        syncStructure: Boolean = false,
+    ): FinishResult = db.withTransaction {
         val loaded = sessions.getFull(sessionId) ?: error("Session $sessionId not found")
         val now = System.currentTimeMillis()
         // A paused session ends at its pause time: move the start forward by the pause.
@@ -374,37 +398,41 @@ class Repository(internal val db: AppDatabase) {
         val template = templateId?.let { templates.get(it) }
         if (template != null) {
             val lines = templates.lines(template.id).associateBy { it.id }
-            var nextPosition = (lines.values.maxOfOrNull { it.position } ?: -1) + 1
-            // The note and date are always kept; the weights and reps only when the setting allows it.
-            val insertedLines = mutableMapOf<Long, Long>()
-            if (updateTemplate) for (ex in full.sorted) {
+            val bySession = mutableMapOf<Long, Long>() // session exercise id -> template line id
+            for (ex in full.sorted) {
                 val done = ex.sets.filter { it.done }
-                if (done.isEmpty()) continue
-                val best = done.maxWith(compareBy<SessionSet>({ it.weight }, { it.reps }))
+                val best = done.maxWithOrNull(compareBy<SessionSet>({ it.weight }, { it.reps }))
                 val line = ex.item.templateExerciseId?.let { lines[it] }
                 if (line != null) {
-                    templates.updateLine(
-                        line.copy(
+                    var updated = line
+                    // Same exercise as planned: keep the progress (weights, reps, sets) if the setting allows it.
+                    if (updateTemplate && best != null && (syncStructure || line.exerciseId == ex.item.exerciseId)) {
+                        updated = updated.copy(sets = ex.sets.size, reps = best.reps, weight = best.weight, note = ex.item.note)
+                    }
+                    // The template takes the session's shape: replaced exercise, rests, superset links.
+                    if (syncStructure) {
+                        updated = updated.copy(
                             exerciseId = ex.item.exerciseId,
                             perHand = ex.item.perHand,
                             restSetSec = ex.item.restSetSec,
                             restAfterSec = ex.item.restAfterSec,
                             supersetNext = ex.item.supersetNext,
                             sets = ex.sets.size,
-                            reps = best.reps,
-                            weight = best.weight,
-                            note = ex.item.note,
-                        ),
-                    )
-                } else {
-                    insertedLines[ex.item.id] = templates.insertLine(
+                        )
+                    }
+                    if (updated != line) templates.updateLine(updated)
+                    bySession[ex.item.id] = line.id
+                } else if (syncStructure) {
+                    // Exercise added during the session.
+                    val ref = best ?: ex.sortedSets.firstOrNull()
+                    bySession[ex.item.id] = templates.insertLine(
                         TemplateExercise(
                             templateId = template.id,
                             exerciseId = ex.item.exerciseId,
-                            position = nextPosition++,
-                            sets = ex.sets.size,
-                            reps = best.reps,
-                            weight = best.weight,
+                            position = lines.size + bySession.size,
+                            sets = ex.sets.size.coerceAtLeast(1),
+                            reps = ref?.reps ?: 10,
+                            weight = ref?.weight ?: 0.0,
                             perHand = ex.item.perHand,
                             restSetSec = ex.item.restSetSec,
                             restAfterSec = ex.item.restAfterSec,
@@ -414,14 +442,12 @@ class Repository(internal val db: AppDatabase) {
                     )
                 }
             }
-            if (updateTemplate) {
-                // The template follows the order of the session: its exercises first, then the ones not done today.
-                val inSession = full.sorted.mapNotNull { ex ->
-                    ex.item.templateExerciseId?.takeIf { it in lines } ?: insertedLines[ex.item.id]
-                }.distinct()
-                val rest = lines.values.sortedBy { it.position }.map { it.id }.filter { it !in inSession }
+            if (syncStructure) {
+                // Exercises removed during the session leave the template; the rest follows the session order.
+                val kept = full.sorted.mapNotNull { bySession[it.item.id] }.distinct()
+                templates.deleteLines(lines.keys.filter { it !in kept })
                 val current = templates.lines(template.id).associateBy { it.id }
-                (inSession + rest).forEachIndexed { index, lineId ->
+                kept.forEachIndexed { index, lineId ->
                     val line = current[lineId] ?: return@forEachIndexed
                     if (line.position != index) templates.updateLine(line.copy(position = index))
                 }

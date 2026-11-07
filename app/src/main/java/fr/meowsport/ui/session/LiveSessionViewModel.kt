@@ -25,6 +25,32 @@ class LiveSessionViewModel(
     val session: StateFlow<SessionFull?> =
         repo.observeSession(sessionId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    /** For each exercise, the checked sets of the last finished session where it was done. */
+    var lastTime by mutableStateOf<Map<Long, List<fr.meowsport.data.SessionSet>>>(emptyMap())
+        private set
+
+    init {
+        viewModelScope.launch {
+            val map = mutableMapOf<Long, List<fr.meowsport.data.SessionSet>>()
+            repo.finishedSessionsFull().sortedByDescending { it.session.startedAt }.forEach { s ->
+                s.sorted.forEach { e ->
+                    if (e.exercise.id !in map) {
+                        val done = e.sortedSets.filter { it.done }
+                        if (done.isNotEmpty()) map[e.exercise.id] = done
+                    }
+                }
+            }
+            lastTime = map
+        }
+    }
+
+    /** Shown when the session was changed: the user chooses whether the template follows. */
+    var askTemplateUpdate by mutableStateOf(false)
+
+    fun requestFinish() = viewModelScope.launch {
+        if (repo.sessionDiffersFromTemplate(sessionId)) askTemplateUpdate = true else finish(syncStructure = false)
+    }
+
     /** Current time, refreshed several times per second for the clocks. */
     val now: StateFlow<Long> = flow {
         while (true) {
@@ -83,11 +109,12 @@ class LiveSessionViewModel(
 
     fun skipRest() = viewModelScope.launch { repo.setRest(sessionId, null, 0) }
 
-    fun finish() {
+    fun finish(syncStructure: Boolean) {
+        askTemplateUpdate = false
         if (finishing) return
         finishing = true
         viewModelScope.launch {
-            result = repo.finishSession(sessionId, settings.value.updateTemplate)
+            result = repo.finishSession(sessionId, settings.value.updateTemplate, syncStructure)
             finishing = false
         }
     }

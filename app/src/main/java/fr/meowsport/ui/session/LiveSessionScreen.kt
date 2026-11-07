@@ -243,6 +243,7 @@ fun LiveSessionScreen(
                     if (linkedNext && !linkedPrev) SupersetLabel()
                     ExerciseBlock(
                         ex = ex,
+                        lastSets = vm.lastTime[ex.exercise.id],
                         inSuperset = linkedPrev || linkedNext,
                         linkedNext = linkedNext,
                         onSuperset = { vm.setSuperset(ex.item.id, it) },
@@ -303,7 +304,7 @@ fun LiveSessionScreen(
             confirmButton = {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = { confirmFinish = false; vm.finish() },
+                        onClick = { confirmFinish = false; vm.requestFinish() },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Sauvegarder et terminer") }
                     OutlinedButton(
@@ -315,6 +316,29 @@ fun LiveSessionScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     ) { Text("Terminer sans sauvegarder") }
+                }
+            },
+        )
+    }
+
+    if (vm.askTemplateUpdate) {
+        AlertDialog(
+            onDismissRequest = { vm.askTemplateUpdate = false },
+            title = { Text("Mettre à jour le modèle ?") },
+            text = {
+                Text(
+                    "Tu as modifié cette séance (exercices ajoutés, retirés, remplacés ou déplacés, repos, supersets). " +
+                        "Veux-tu que ton modèle reprenne la séance telle que tu viens de la faire ?",
+                )
+            },
+            confirmButton = {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { vm.finish(syncStructure = true) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Mettre à jour le modèle")
+                    }
+                    OutlinedButton(onClick = { vm.finish(syncStructure = false) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Garder le modèle tel quel")
+                    }
                 }
             },
         )
@@ -420,6 +444,7 @@ private fun RestCard(remainingMs: Long, totalSec: Int, onMinus: () -> Unit, onPl
 @Composable
 private fun ExerciseBlock(
     ex: SessionExerciseFull,
+    lastSets: List<SessionSet>?,
     onToggle: (SessionSet) -> Unit,
     onValues: (SessionSet, Double, Int) -> Unit,
     onAddSet: () -> Unit,
@@ -479,6 +504,16 @@ private fun ExerciseBlock(
                         ex.exercise.muscle.label
                     }
                     Text(target, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "Last time : " + (
+                            lastSets?.joinToString(" · ") { s ->
+                                if (s.weight > 0) "${s.reps} × ${formatWeight(s.weight)} kg" else "${s.reps} reps"
+                            } ?: "première fois"
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                     Text(
                         "Repos ${formatRest(ex.item.restSetSec)} · puis ${formatRest(ex.item.restAfterSec)}",
                         style = MaterialTheme.typography.bodySmall,
